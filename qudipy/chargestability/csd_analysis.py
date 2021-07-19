@@ -727,19 +727,18 @@ class CSDAnalysis:
         if reg_num != 0:
             chg_trans_2.append (reg_sum/reg_num)
 
-        # printing for testing
-        print ('transitions, dot 1: ', chg_trans_1)
-        print ('transitions, dot 2: ', chg_trans_2)
-
-        # plotting derivatives 
         if plot_der:
+            # printing for comparing values with that of the plot
+            print ('transitions, dot 1: ', chg_trans_1)
+            print ('transitions, dot 2: ', chg_trans_2)
+
+            # plotting derivatives 
             fig, (ax1, ax2) = plt.subplots(1, 2)
             fig.suptitle("Voltage values vs derivatives (to check transition values)")
             ax1.set_title("V1 vs derivative")
             ax1.plot(self.csd.v_1_values, self.csd.csd_der.iloc[0,:])
             ax2.set_title("V2 vs derivative")
             ax2.plot(self.csd.v_2_values, self.csd.csd_der.iloc[:,0])
-            
 
         # calculate voltage difference between adjacent dot 1 transition regions - this is delta_V1
         if len(chg_trans_1) > 1:
