@@ -689,43 +689,41 @@ class CSDAnalysis:
         # the non-zero derivatives will be grouped according to charge transitions
         # if three adjacent derivative values are below a threshold, break up the region 
         # threshold is 10% of max derivative in region
-        # use average of values in the region to calculate delta_V
+        # use average of voltage values in the region to calculate delta_V
 
         # set sum, number, and threshold of values in charge transition region to 0
-        reg_sum, reg_num, reg_thresh = 0, 0, 0
+        reg_sum, reg_num = 0, 0
+        thresh = 0.1*max(self.csd.csd_der.iloc[0,:])
 
         # find points with non-zero derivative in x-direction (for delta_V1)
         for i in range (len(self.csd.v_1_values)-2):
-            der_int_1 = self.csd.csd_der.iloc[0, i] # derivative in x-direction
-            # append voltage value to list of charge transition values if non-zero
-            if der_int_1 != 0:
+            # append voltage value to list of charge transition values if derivative exceeds threshold
+            if self.csd.csd_der.iloc[0, i] >= thresh:
                 reg_sum += self.csd.v_1_values[i]
                 reg_num += 1
-                reg_thresh = 0.1*der_int_1 if 0.1*der_int_1 > reg_thresh else reg_thresh
             # if three subsequent derivative values are below threshold, end chg transition region
             elif all([self.csd.csd_der.iloc[0, i],self.csd.csd_der.iloc[0, i+1], \
-                self.csd.csd_der.iloc[0, i+2]])<reg_thresh and reg_num!=0:
+                self.csd.csd_der.iloc[0, i+2]])<thresh and reg_num!=0:
                 chg_trans_1.append (reg_sum/reg_num)
-                reg_sum, reg_num, reg_thresh = 0, 0, 0
+                reg_sum, reg_num = 0, 0
         if reg_num != 0:
             chg_trans_1.append (reg_sum/reg_num)
 
         # reset sum, number, and max of values in charge transition region
-        reg_sum, reg_num, reg_thresh = 0, 0, 0
+        reg_sum, reg_num = 0, 0
+        thresh = 0.1*max(self.csd.csd_der.iloc[:,0])
 
         # find points with non-zero derivative in y-direction (for delta_V2)
         for i in range (len(self.csd.v_2_values)-2):
-            der_int_2 = self.csd.csd_der.iloc[i, 0] # derivative in y-direction
-            # append voltage value to list of charge transition values if non-zero
-            if der_int_2 != 0:
+            # append voltage value to list of charge transition values if derivative exceeds threshold
+            if self.csd.csd_der.iloc[i, 0] != 0:
                 reg_sum += self.csd.v_2_values[i]
                 reg_num += 1
-                reg_thresh = 0.1*der_int_2 if 0.1*der_int_2 > reg_thresh else reg_thresh
             # if three subsequent derivative values are zero, denotes end of chg transition region
             elif all([self.csd.csd_der.iloc[i, 0],self.csd.csd_der.iloc[i+1, 0], \
-                self.csd.csd_der.iloc[i+2, 0]])<reg_thresh and reg_num!=0:
+                self.csd.csd_der.iloc[i+2, 0]])<thresh and reg_num!=0:
                 chg_trans_2.append (reg_sum/reg_num)
-                reg_sum, reg_num, reg_thresh = 0, 0, 0
+                reg_sum, reg_num = 0, 0
         if reg_num != 0:
             chg_trans_2.append (reg_sum/reg_num)
 
@@ -748,13 +746,13 @@ class CSDAnalysis:
             delta_V1 = chg_trans_1[1] - chg_trans_1[0] 
         else:
             delta_V1 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to determine delta_V1')
+            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to determine delta_V1. Function will return None for delta_V1 value')
         
         # calculate voltage difference between adjacent dot 2 transition regions - this is delta_V2
         if len(chg_trans_2) > 1:
             delta_V2 = chg_trans_2[1] - chg_trans_2[0]
         else:
             delta_V2 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to determine delta_V2')
+            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to determine delta_V2. Function will return None for delta_V2 value')
 
         return delta_V1, delta_V2
