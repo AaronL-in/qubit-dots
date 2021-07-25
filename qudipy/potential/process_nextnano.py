@@ -6,6 +6,7 @@ z-coordinate.
 """
 
 import numpy as np
+import pandas as pd
 import os
 import re
 
@@ -26,8 +27,8 @@ def load_file(filename):
 
     # import .dat data
     if filename[-4:] == '.dat':
-
-        data = np.genfromtxt(filename,dtype=float)
+        df = pd.read_csv(filename, header=None)
+        data = df.to_numpy()
 
         return data
 
@@ -87,7 +88,6 @@ def parse_ctrl_items(filename, ctrl_type):
     if ctrl_type.lower() in ['value','values']:
 
         ctrl_vals = []
-
         # search through list of strings for floats from the parsed file name
         for i in parsed_filename:
             try:
@@ -101,7 +101,6 @@ def parse_ctrl_items(filename, ctrl_type):
     elif ctrl_type.lower() in ['name','names']:
 
         ctrl_names = []
-
         # search through list of strings for control name attached to float 
         # and seperated by an _
         for idx, strg in enumerate(parsed_filename):
@@ -113,7 +112,7 @@ def parse_ctrl_items(filename, ctrl_type):
 
         return ctrl_names
 
-def import_folder(folder):
+def import_folder(folder, option=False):
     '''
     Parameters
     ----------
@@ -141,7 +140,6 @@ def import_folder(folder):
     # folder
     for subdir, _, files in os.walk(folder):
 
-
         # list containing run data i.e. voltages, potential, 3-tuple of 
         # coordinates
         data_per_run = []
@@ -150,20 +148,24 @@ def import_folder(folder):
         # /output
         if subdir != folder and subdir[-6:] == 'output':
 
-            print('Importing .coord and .dat data files from {}:'.format(
-                subdir.replace(str(folder),'')))
+            # elect to display the files being imported from nextnano
+            if option == True:
+                print('Importing .coord and .dat data files from {}:'.format(
+                    subdir.replace(str(folder),'')))
 
             voltage = parse_ctrl_items(subdir,'value')
+
+            # first append control values
             data_per_run.append(voltage)
 
-            # first append potential data
+            # second append potential data
             for file in files:
                 filename = os.path.join(subdir, file)
 
                 if filename[-13:] == 'potential.dat':
                     data_per_run.append(load_file(filename))
 
-            # second append coordinate data
+            # finally append coordinate data
             for file in files:
                 filename = os.path.join(subdir, file)
 
@@ -321,7 +323,7 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
         Potential or electric field XY-plane data is saved as a text file for
         the z-coordinate along slice.
     '''
-
+    
     potential_copy = potential.copy()
     # loop through each combination of gate voltages
     for i in potential_copy:
@@ -365,8 +367,6 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
 
         # save potential data for xy slice
         np.savetxt(f_path, coords_and_pot, delimiter=',')
-        
-    return 0
 
 def write_data(input_dir_path,output_dir_path,slice,f_type):
     '''
@@ -395,7 +395,7 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
     
     Returns
     -------
-    N/A: Text File
+    N/A: Text Files
         Potential or electric field XY-plane data is saved as a text file for
         the z-coordinate along slice.
     '''
@@ -408,7 +408,11 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
             gates = parse_ctrl_items(subdir,'name')
             break
 
+            
+    # output_dir_path = output_dir_path + '_slice_{}'.format(slice)
+    output_dir_path = output_dir_path + '_for_slice_{:.3e}'.format(slice)
+    
     # write xy potential files
     for i in f_type:
-        print('Converting 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data slice for z = {}.'.format(i,slice))
+        print('Converting 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
         xy_potential(potential, gates, slice, i,output_dir_path)
