@@ -3,7 +3,11 @@ Constant matrices used to define quantum gates
 
 @author: hromecB
 """
+import qudipy.qutils.unitaries as qunit
+
 import numpy as np
+from numpy.core.fromnumeric import shape
+
 
 #constant Pauli 2x2 matrices
 
@@ -13,8 +17,17 @@ PAULI_Y = np.array([[0, complex(-0.0, -1.0)], [complex(0.0, 1.0), 0]],
 PAULI_Z = np.array([[1, 0], [0, -1]], dtype=complex)
 PAULI_I = np.array([[1, 0], [0, 1]], dtype=complex)
 
+
+# Initialize unitary object which contains constant Pauli 2x2 matrices
+ops = qunit.unitary()
+# define filename for unitary operators object
+filename = 'Unitary Operators.npz'
+# load dictionary of operators from unitary object
+ops.operators = ops.load_ops(filename)
+
+
 def x(N, k):
-    """
+    '''
     Creates matrix X_k of dimensions 2**N x 2**N 
     
     Parameters
@@ -33,7 +46,7 @@ def x(N, k):
     x_k: 2D complex array
         Matrix X_k of dimensions 2**N x 2**N 
 
-    """
+    '''
     if k == 1:
         return np.kron(PAULI_X, np.eye(2 ** (N - 1)))
     x_k = PAULI_I
@@ -47,7 +60,7 @@ def x(N, k):
 
 
 def y(N, k):
-    """
+    '''
     Creates matrix Y_k of dimensions 2**N x 2**N 
     
     Parameters
@@ -66,7 +79,7 @@ def y(N, k):
     y_k: 2D complex array
         Matrix Y_k of dimensions 2**N x 2**N 
 
-    """
+    '''
     if k == 1:
         return np.kron(PAULI_Y, np.eye(2 ** (N - 1)))
     y_k = PAULI_I
@@ -80,7 +93,7 @@ def y(N, k):
 
 
 def z(N, k):
-    """
+    '''
     Creates matrix Z_k of dimensions 2**N x 2**N 
     
     Parameters
@@ -99,7 +112,7 @@ def z(N, k):
     z_k: 2D complex array
         Matrix Z_k of dimensions 2**N x 2**N 
 
-    """
+    '''
     if k == 1:
         return np.kron(PAULI_Z, np.eye(2 ** (N - 1)))
     z_k = PAULI_I
@@ -114,7 +127,7 @@ def z(N, k):
 #ladder operators X_k ± i Y_k
 
 def sigma_plus(N, k):
-    """
+    '''
     Defines a raising operator of the k-th qubit
 
     Parameters
@@ -128,12 +141,12 @@ def sigma_plus(N, k):
     -------
     : complex 2D array
         The raising operator X_k + i Y_k
-    """
+    '''
     return x(N, k) + complex(0.0, 1.0) * y(N, k)
 
 
 def sigma_minus(N, k):
-    """
+    '''
     Defines a lowering operator of the k-th qubit
 
     Parameters
@@ -147,11 +160,11 @@ def sigma_minus(N, k):
     -------
     : complex 2D array
         The lowering operator X_k - i Y_k
-    """
+    '''
     return x(N, k) - complex(0.0, 1.0) * y(N, k)
     
 def e_up(N, k):
-    """
+    '''
     Defines matrix that projects k-th qubit on the state |0〉
     
     Parameters
@@ -170,12 +183,12 @@ def e_up(N, k):
     : 2D complex array
         Matrix |0〉〈0|_k of dimensions 2**N x 2**N 
 
-    """
+    '''
     return 0.5 * (unit(N) + z(N, k))
 
 
 def e_down(N, k):
-    """
+    '''
     Defines matrix that projects k-th qubit on the state |1〉
     
     Parameters
@@ -193,12 +206,12 @@ def e_down(N, k):
     -------
     : 2D complex array
         Matrix |1〉〈1|_k of dimensions 2**N x 2**N 
-    """
+    '''
     return 0.5 * (unit(N) - z(N, k))
 
 
 def unit(N):
-    """
+    '''
     Defines unit matrix of dimensions 2**N x 2**N
     
     Parameters
@@ -214,13 +227,13 @@ def unit(N):
     -------
     : 2D complex array
        Unit matrix of dimensions 2**N x 2**N
-    """
+    '''
     
     return np.eye((2 ** N), (2 ** N), dtype=complex)
 
 
 def cnot(N, ctrl, trgt):
-    """
+    '''
     Defines a matrix for CNOT gate.
     
     Parameters
@@ -241,12 +254,12 @@ def cnot(N, ctrl, trgt):
     : 2D complex array
         Matrix for CNOT gate
 
-    """
+    '''
     return e_up(N, ctrl) + e_down(N, ctrl) @ x(N, trgt)
 
 
 def swap(N, k1, k2):
-    """
+    '''
     Defines SWAP gate matrix for the qubits with the indices k1, k2.
     
     Parameters
@@ -265,12 +278,12 @@ def swap(N, k1, k2):
     : 2D complex array
         Matrix for SWAP gate 
 
-    """
+    '''
     return cnot(N, k1, k2) @ cnot(N, k2, k1) @ cnot(N, k1, k2)
 
 
 def sigma_product(N, k1, k2):
-    """
+    '''
     Defines the dot product of two Pauli vectors.
     
     Parameters
@@ -289,12 +302,12 @@ def sigma_product(N, k1, k2):
     : 2D complex array
         The inner product \vec{sigma_k1} \cdot \vec{sigma_k2}
 
-    """
+    '''
     return x(N, k1) @ x(N, k2) + y(N, k1) @ y(N, k2) + z(N, k1) @ z(N, k2)
 
 
 def rswap(N, k1, k2):
-    """
+    '''
     Defines sqrt(SWAP) gate matrix for the qubits with the indices k1, k2.
     
     Parameters
@@ -313,6 +326,63 @@ def rswap(N, k1, k2):
     : 2D complex array
         Matrix for SWAP gate 
 
-    """
+    '''
     return (complex(0.25, -0.25) * sigma_product(N, k1, k2) 
                                                 + complex(1.5, 0.5) * unit(N))
+
+def unitary(operator):
+    '''
+    Parameters
+    ----------
+    
+
+    Keyword Arguments
+    -----------------
+    
+
+    Returns
+    -------
+    : 2D complex array
+        Matrix for SWAP gate 
+    '''
+    print(type(operator))
+    print(operator['unit'])
+
+    # TODO check if matrix is: ndarray, complex valued, square, unitary
+    
+    # TODO make into class
+    # TODO add append new operator method
+    # TODO delete entry in dictionary
+    # TODO save current dictornary
+    # TODO load desired diction and choose to append to current diconary
+
+    # test if operator is unitary
+    
+
+    U = operator['unit']
+    Ustar = np.conjugate(np.transpose(operator['unit']))
+
+    print('-----------')
+    # print(U * Ustar)
+    # print(Ustar * U)
+    
+    print(np.matmul(U,Ustar))
+    print(np.matmul(Ustar,U))
+
+    [n,m] = operator['unit'].shape
+    if n == m:
+        # ndarray represents a square matirx
+        N = n
+    else:
+        raise ValueError('Operator entry contains a non-sqaure array of size [{},{}].'.format(n,m))
+    
+    
+    print('===========')
+    I = np.eye(N,N,dtype=complex)
+    print(I)
+    
+    # check it operator is unitary
+    if (np.array_equal(np.matmul(U,Ustar),I, ) == False or 
+        np.array_equal(np.matmul(Ustar,U),I) == False):
+        raise ValueError('Operator is not unitary.')
+
