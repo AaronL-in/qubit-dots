@@ -70,20 +70,18 @@ class unitary:
 
 
     def save_ops(self,filename):
-        
+        # define original directory and qudipy module directory to save obj
         original_dir = os.getcwd()
-
-        
         os.chdir(original_dir + '\\qudipy')
 
         np.savez(filename, **self.operators)
         
+        # Reset working directory to original   
         os.chdir(original_dir)
 
     def load_ops(self, filename):
-    
+        # define original directory and qudipy module directory to save obj
         original_dir = os.getcwd()
-
         os.chdir(original_dir + '\\qudipy')
 
         # Load filename data object and convert to dictionary
@@ -91,17 +89,19 @@ class unitary:
         print("Loaded existing dictionary with unitary operators: {}.".format(
             ops.keys()))
                 
+        # Reset working directory to original        
         os.chdir(original_dir)    
         return ops
 
-    def add_operators(self,new_dict):
-        print("Adding unitary operators: {}.".format(new_dict.keys()))
+    def add_operators(self,new_ops):
+        print("Adding unitary operators: {}.".format(new_ops.keys()))
         # Check the new operators
-        self.check_ops(new_dict)
+        self.check_ops(new_ops)
         # Merge existing dictionary with dictionary of new unitary operators
-        self.operators = {**self.operators, **new_dict}
+        self.operators = {**self.operators, **new_ops}
 
     def remove_operators(self, op_names):
+        print("Removing unitary operators: {}.".format(op_names))
         for name in op_names:
             self.operators.pop(name)
 

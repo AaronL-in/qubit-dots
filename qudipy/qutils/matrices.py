@@ -8,21 +8,12 @@ import qudipy.qutils.unitaries as qunit
 import numpy as np
 from numpy.core.fromnumeric import shape
 
-
-#constant Pauli 2x2 matrices
-
-PAULI_X = np.array([[0, 1], [1, 0]], dtype=complex)
-PAULI_Y = np.array([[0, complex(-0.0, -1.0)], [complex(0.0, 1.0), 0]], 
-                               dtype=complex)
-PAULI_Z = np.array([[1, 0], [0, -1]], dtype=complex)
-PAULI_I = np.array([[1, 0], [0, 1]], dtype=complex)
-
-
-# Initialize unitary object which contains constant Pauli 2x2 matrices
+# Initialize unitary object which contains constant Pauli 2x2 matrices and other
+# user defined constant unitary operators
 ops = qunit.unitary()
-# define filename for unitary operators object
+# Define filename for unitary operators object
 filename = 'Unitary Operators.npz'
-# load dictionary of operators from unitary object
+# Load dictionary of operators from unitary object
 ops.operators = ops.load_ops(filename)
 
 
@@ -48,16 +39,15 @@ def x(N, k):
 
     '''
     if k == 1:
-        return np.kron(PAULI_X, np.eye(2 ** (N - 1)))
-    x_k = PAULI_I
+        return np.kron(ops.operators['PAULI_X'], np.eye(2 ** (N - 1)))
+    x_k = ops.operators['PAULI_I']
     for m in range(2, N + 1):
         if k is m:
-            x_k = np.kron(x_k, PAULI_X)
+            x_k = np.kron(x_k, ops.operators['PAULI_X'])
         else:
-            x_k = np.kron(x_k, PAULI_I)
+            x_k = np.kron(x_k, ops.operators['PAULI_I'])
     else:
         return x_k
-
 
 def y(N, k):
     '''
@@ -81,16 +71,15 @@ def y(N, k):
 
     '''
     if k == 1:
-        return np.kron(PAULI_Y, np.eye(2 ** (N - 1)))
-    y_k = PAULI_I
+        return np.kron(ops.operators['PAULI_Y'], np.eye(2 ** (N - 1)))
+    y_k = ops.operators['PAULI_I']
     for m in range(2, N + 1):
         if k is m:
-            y_k = np.kron(y_k, PAULI_Y)
+            y_k = np.kron(y_k, ops.operators['PAULI_Y'])
         else:
-            y_k = np.kron(y_k, PAULI_I)
+            y_k = np.kron(y_k, ops.operators['PAULI_I'])
     else:
         return y_k
-
 
 def z(N, k):
     '''
@@ -114,13 +103,13 @@ def z(N, k):
 
     '''
     if k == 1:
-        return np.kron(PAULI_Z, np.eye(2 ** (N - 1)))
-    z_k = PAULI_I
+        return np.kron(ops.operators['PAULI_Z'], np.eye(2 ** (N - 1)))
+    z_k = ops.operators['PAULI_I']
     for m in range(2, N + 1):
         if k is m:
-            z_k = np.kron(z_k, PAULI_Z)
+            z_k = np.kron(z_k, ops.operators['PAULI_Z'])
         else:
-            z_k = np.kron(z_k, PAULI_I)
+            z_k = np.kron(z_k, ops.operators['PAULI_I'])
     else:
         return z_k
 
@@ -143,7 +132,6 @@ def sigma_plus(N, k):
         The raising operator X_k + i Y_k
     '''
     return x(N, k) + complex(0.0, 1.0) * y(N, k)
-
 
 def sigma_minus(N, k):
     '''
@@ -186,7 +174,6 @@ def e_up(N, k):
     '''
     return 0.5 * (unit(N) + z(N, k))
 
-
 def e_down(N, k):
     '''
     Defines matrix that projects k-th qubit on the state |1〉
@@ -209,7 +196,6 @@ def e_down(N, k):
     '''
     return 0.5 * (unit(N) - z(N, k))
 
-
 def unit(N):
     '''
     Defines unit matrix of dimensions 2**N x 2**N
@@ -230,7 +216,6 @@ def unit(N):
     '''
     
     return np.eye((2 ** N), (2 ** N), dtype=complex)
-
 
 def cnot(N, ctrl, trgt):
     '''
@@ -257,7 +242,6 @@ def cnot(N, ctrl, trgt):
     '''
     return e_up(N, ctrl) + e_down(N, ctrl) @ x(N, trgt)
 
-
 def swap(N, k1, k2):
     '''
     Defines SWAP gate matrix for the qubits with the indices k1, k2.
@@ -280,7 +264,6 @@ def swap(N, k1, k2):
 
     '''
     return cnot(N, k1, k2) @ cnot(N, k2, k1) @ cnot(N, k1, k2)
-
 
 def sigma_product(N, k1, k2):
     '''
@@ -305,7 +288,6 @@ def sigma_product(N, k1, k2):
     '''
     return x(N, k1) @ x(N, k2) + y(N, k1) @ y(N, k2) + z(N, k1) @ z(N, k2)
 
-
 def rswap(N, k1, k2):
     '''
     Defines sqrt(SWAP) gate matrix for the qubits with the indices k1, k2.
@@ -329,60 +311,3 @@ def rswap(N, k1, k2):
     '''
     return (complex(0.25, -0.25) * sigma_product(N, k1, k2) 
                                                 + complex(1.5, 0.5) * unit(N))
-
-def unitary(operator):
-    '''
-    Parameters
-    ----------
-    
-
-    Keyword Arguments
-    -----------------
-    
-
-    Returns
-    -------
-    : 2D complex array
-        Matrix for SWAP gate 
-    '''
-    print(type(operator))
-    print(operator['unit'])
-
-    # TODO check if matrix is: ndarray, complex valued, square, unitary
-    
-    # TODO make into class
-    # TODO add append new operator method
-    # TODO delete entry in dictionary
-    # TODO save current dictornary
-    # TODO load desired diction and choose to append to current diconary
-
-    # test if operator is unitary
-    
-
-    U = operator['unit']
-    Ustar = np.conjugate(np.transpose(operator['unit']))
-
-    print('-----------')
-    # print(U * Ustar)
-    # print(Ustar * U)
-    
-    print(np.matmul(U,Ustar))
-    print(np.matmul(Ustar,U))
-
-    [n,m] = operator['unit'].shape
-    if n == m:
-        # ndarray represents a square matirx
-        N = n
-    else:
-        raise ValueError('Operator entry contains a non-sqaure array of size [{},{}].'.format(n,m))
-    
-    
-    print('===========')
-    I = np.eye(N,N,dtype=complex)
-    print(I)
-    
-    # check it operator is unitary
-    if (np.array_equal(np.matmul(U,Ustar),I, ) == False or 
-        np.array_equal(np.matmul(Ustar,U),I) == False):
-        raise ValueError('Operator is not unitary.')
-
