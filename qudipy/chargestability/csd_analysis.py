@@ -76,7 +76,7 @@ class CSDAnalysis:
         self.triple_points = None
 
         # hubbard_from_csd
-        self.hubbard_params = None
+        self.hubbard_params = dict() # dictionary to store extracted Hubbard parameters
 
         # If no capacitances are provided, create a color map using the hash of the occupation
         if self.capacitances is None:
@@ -758,6 +758,10 @@ class CSDAnalysis:
             print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to \
                     determine delta_V2. Function will return None for delta_V2 value')
 
+        # add delta_V1(2) values to Hubbard parameters dictionary
+        self.hubbard_params['delta_V1'] = delta_V1
+        self.hubbard_params['delta_V2'] = delta_V2
+
         return delta_V1, delta_V2
 
     def hubbard_from_csd (self):
@@ -774,12 +778,13 @@ class CSDAnalysis:
         -------
         Dictionary of hubbard parameters extracted from the CSD. This 
             dictionary is also stored as an attribute of the 
-            CSD_Analysis class. The elements are:
+            CSD_Analysis class. Elements added in this function are:
                 alpha_1(2): Lever arm for dot 1(2)
                 U_12: Coulomb interaction between dots 1 and 2
                 U_1(2): Coulomb interaction within dot 1(2)
+            If delta_V1(2) were also calculated, these would also be 
+            stored in this dictionary.
         '''
-        self.hubbard_params = dict()
 
         # find U_12 using length of phase boundary between (1,1) and (0,2)
         triple_points = self.find_tripletpoints()
