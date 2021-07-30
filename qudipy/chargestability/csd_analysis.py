@@ -16,6 +16,7 @@ import seaborn as sns
 from scipy.ndimage import gaussian_filter
 from sklearn import cluster
 from sklearn.neighbors import NearestCentroid
+from scipy.optimize import fsolve
 
 class CSDAnalysis:
     '''
@@ -24,8 +25,7 @@ class CSDAnalysis:
     '''
 
     def __init__(self, csd, capacitances=None, blur_sigma=None):
-        '''
-         
+        ''' 
         Parameters
         ----------
         csd : CSD object from csd_cim
@@ -74,6 +74,9 @@ class CSDAnalysis:
         self.b_array = None
         self.line_params = None
         self.triple_points = None
+
+        # hubbard_from_csd
+        self.hubbard_params = None
 
         # If no capacitances are provided, create a color map using the hash of the occupation
         if self.capacitances is None:
@@ -563,7 +566,6 @@ class CSDAnalysis:
         if self.line_params[2,1] > self.line_params[3,1]:
             self.line_params[[2,3]] = self.line_params[[3,2]]
 
-
         candidate_points = []
         for i in range(len(self.m_array)):
             # Make sure you aren't looping over the same pair twice
@@ -745,13 +747,67 @@ class CSDAnalysis:
             delta_V1 = chg_trans_1[1] - chg_trans_1[0] 
         else:
             delta_V1 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to determine delta_V1. Function will return None for delta_V1 value')
+            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to \
+                    determine delta_V1. Function will return None for delta_V1 value')
         
         # calculate voltage difference between adjacent dot 2 transition regions - this is delta_V2
         if len(chg_trans_2) > 1:
             delta_V2 = chg_trans_2[1] - chg_trans_2[0]
         else:
             delta_V2 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to determine delta_V2. Function will return None for delta_V2 value')
+            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to \
+                    determine delta_V2. Function will return None for delta_V2 value')
 
         return delta_V1, delta_V2
+
+    def hubbard_from_csd (self):
+        '''
+        Extracts Hubbard the parameters from the charge stability 
+            diagram (CSD). 
+
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Dictionary of hubbard parameters extracted from the CSD. This 
+            dictionary is also stored as an attribute of the 
+            CSD_Analysis class. The elements are:
+                alpha_1(2): Lever arm for dot 1(2)
+                U_12: Coulomb interaction between dots 1 and 2
+                U_1(2): Coulomb interaction within dot 1(2)
+        '''
+        self.hubbard_params = dict()
+
+        # find U_12 using length of phase boundary between (1,1) and (0,2)
+        triple_points = self.find_tripletpoints()
+        e_triple = triple_points[0]
+        h_triple = triple_points[1]
+        # length of phase boundary between (1,1) and (0,2) is proportional to U_12
+        d = np.sqrt((e_triple[0]-h_triple[0])**2 + (e_triple[1]-h_triple[1])**2) 
+        U_12 = d/np.sqrt(2)
+        self.hubbard_params['U_12'] = U_12
+
+        # find lever arm values using slopes of CSD
+        m_1 = (self.line_params[0][0] + self.line_params[1][0])/2
+        alpha_1_est = -m_1/(1-m_1)
+        self.hubbard_params['alpha_1'] = alpha_1_est
+
+        m_2 = (self.line_params[2][0]**-1 + self.line_params[3][0]**-1)/2
+        alpha_2_est = -m_2/(1-m_2)
+        self.hubbard_params['alpha_2'] = alpha_2_est
+
+        # find U1 and U2 by solving func simultaneously for U[0] (ie U_1) and U[1] (ie U_2)
+        def func(U):
+            U = [x*1e-3 for x in U]
+            return [(U[1] - U_12) * U[0]/(U[0]*U[1] - U_12**2) - alpha_1_est,
+                    (U[0] - U_12) * U[1]/(U[0]*U[1] - U_12**2) - alpha_2_est]
+
+        U = fsolve(func, x0=[1,1], maxfev=1000) # finds the x-values that make func(U) 0 (ie the values of U_1 and U_2)
+
+        self.hubbard_params['U_1'] = U[0] 
+        self.hubbard_params['U_2'] = U[1] 
+        
+        return self.hubbard_params
