@@ -399,6 +399,7 @@ class CSDAnalysis:
         if plotting is True:
             # take the transpose of points for ease of plotting 
             temp_points = points.transpose()
+            
             # Create uniques colors for each cluster
             unique_labels = set(labels)
             colors = [plt.cm.viridis(each) for each in np.linspace(0, 1, len(unique_labels))]
@@ -410,13 +411,15 @@ class CSDAnalysis:
 
                 points_to_plot_x = []
                 points_to_plot_y = []
+                
                 for i in range(len(labels)):
                     if k == labels[i]:
                         points_to_plot_x.append(temp_points[0][i])
                         points_to_plot_y.append(temp_points[1][i])
-
+                
                 sns.scatterplot(x=points_to_plot_x, y=points_to_plot_y, color=tuple(col), s=100)
 
+            
             plt.title('Estimated number of clusters: %d' % n_clusters_)
             plt.ylabel(r'$\rho$ (V)')
             plt.xlabel(r'$\theta$ (rad)')
