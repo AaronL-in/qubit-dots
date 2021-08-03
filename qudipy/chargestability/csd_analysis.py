@@ -661,7 +661,7 @@ class CSDAnalysis:
         ax.set(xlabel=r'V$_1$', ylabel=r'V$_2$')
         plt.show()
 
-    def delta_V_from_csd (self, plot_der=True):
+    def delta_V_from_csd (self, plot_der=False):
         '''
         From the charge stability diagram (CSD), extracts the voltage
         change in gate 1(2) required to increase the occupancy of 
@@ -670,7 +670,7 @@ class CSDAnalysis:
         Parameters
         ----------
         plot_der: If True, plots the derivative of the CSD to check 
-            that regions were separated properly (Default True).
+            that regions were separated properly (Default False).
 
         Returns
         -------
@@ -750,16 +750,16 @@ class CSDAnalysis:
             delta_V1 = chg_trans_1[1] - chg_trans_1[0] 
         else:
             delta_V1 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to \
-                    determine delta_V1. Function will return None for delta_V1 value')
+            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to ' +
+                    'determine delta_V1. Function will return None for delta_V1 value')
         
         # calculate voltage difference between adjacent dot 2 transition regions - this is delta_V2
         if len(chg_trans_2) > 1:
             delta_V2 = chg_trans_2[1] - chg_trans_2[0]
         else:
             delta_V2 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to \
-                    determine delta_V2. Function will return None for delta_V2 value')
+            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to ' +
+                    'determine delta_V2. Function will return None for delta_V2 value')
 
         # add delta_V1(2) values to Hubbard parameters dictionary
         self.hubbard_params['delta_V1'] = delta_V1
