@@ -281,10 +281,10 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     pot3DArray = np.reshape(potential,(xsize,ysize,zsize), order='F')
 
-    if f_type.lower() in ['field', 'electric', 'ez']:
+    if f_type in ['field', 'electric', 'Ez']:
         gradient = np.gradient(pot3DArray,x,y,z)[-1]
         field2DArray = gradient[:, :, index]
-    elif f_type.lower() in ['pot', 'potential', 'uxy']:
+    elif f_type in ['pot', 'potential', 'Uxy']:
         field2DArray = pot3DArray[:, :, index]
 
     return field2DArray
