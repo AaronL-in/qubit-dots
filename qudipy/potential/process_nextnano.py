@@ -281,10 +281,10 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     pot3DArray = np.reshape(potential,(xsize,ysize,zsize), order='F')
 
-    if f_type in ['field', 'electric', 'Ez']:
+    if f_type.lower() in ['field', 'electric', 'ez']:
         gradient = np.gradient(pot3DArray,x,y,z)[-1]
         field2DArray = gradient[:, :, index]
-    elif f_type in ['pot', 'potential', 'Uxy']:
+    elif f_type.lower() in ['pot', 'potential', 'uxy']:
         field2DArray = pot3DArray[:, :, index]
 
     return field2DArray
@@ -328,12 +328,12 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
     # loop through each combination of gate voltages
     for i in potential_copy:
 
-        if f_type.lower() in ['pot', 'potential', 'Uxy']:
+        if f_type.lower() in ['pot', 'potential', 'uxy']:
             f_name = 'Uxy'
             # slice an x-y plane of the potentials
             potential2D = reshape_potential(i[1], i[2][0], i[2][1], i[2][2],
                 slice, f_name)
-        elif f_type.lower() in ['field', 'electric', 'Ez']:
+        elif f_type.lower() in ['field', 'electric', 'ez']:
             f_name = 'Ez'
             potential2D = reshape_potential(i[1], i[2][0], i[2][1], i[2][2],
                 slice, f_name)
