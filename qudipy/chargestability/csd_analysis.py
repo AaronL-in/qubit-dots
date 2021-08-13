@@ -49,22 +49,24 @@ class CSDAnalysis:
         '''
         self.capacitances = capacitances
         self.csd = copy.copy(csd) # to avoid overwriting original csd object
-        self.csd.csd_der = None 
+        self.csd.csd_der = None
+        self.csd.csd_der_cropped = None 
 
-        # Create a new empty DataFrame to put numbers instead of tuples corresponding to occupations
+        # Create an empty DataFrame to put numbers instead of tuples corresponding to occupations
         self.csd.csd = pd.DataFrame(0, index=self.csd.v_1_values, columns=self.csd.v_2_values,
             dtype=np.float32)
-
+        
         # Attributes to be defined in later methods
-        # generate bitmap:
+        # generate_bitmap:
         self.csd_bitmap = None
+        self.csd_bitmap_cropped = None
 
-        # hough transform:
+        # hough_transform
         self.accumulator = None
         self.thetas = None
         self.rhos = None
 
-        # threshold_hough_accumulator:
+        # threshold_hough_accumulator
         self.accumulator_threshold = None
         self.db = None
         self.centroids = None
@@ -104,13 +106,39 @@ class CSDAnalysis:
             df_der_col = self.csd.csd.diff(axis=1).fillna(0)
             csd_der = np.sqrt(df_der_row**2 + df_der_col**2) # sensitive to changes in x and y
             self.csd.csd_der = csd_der
-
+            
         if blur_sigma is not None:
             if self.capacitances is None:
                 raise Warning("Blurring of data cannot occur when no capaciatnce are provided." 
                                 + " Data will not be changed")
             self.csd.csd = pd.DataFrame(gaussian_filter(self.csd.csd, blur_sigma),
                 columns=self.csd.v_1_values, index=self.csd.v_2_values)
+        
+        # Need to save a cropped CSD for Hough Transform analysis
+        # Find cropping indices (just after the first charge transition in either direction)
+        self.chg_transitions = self.find_chg_transitions ()
+        self.cropped_v1_max_ind = self.csd.csd.columns.get_loc(self.chg_transitions[0][1]) \
+                                    - 20 if len(self.chg_transitions[0]) > 1 \
+                                    else len (self.csd.v_1_values) - 1
+        self.cropped_v2_max_ind = self.csd.csd.columns.get_loc(self.chg_transitions[1][1]) \
+                                    - 20 if len(self.chg_transitions[1]) > 1 \
+                                    else len (self.csd.v_2_values) - 1
+
+        # Find cropping voltage values
+        self.cropped_v1_max = self.csd.csd.columns[self.cropped_v1_max_ind]
+        self.cropped_v2_max = self.csd.csd.index[self.cropped_v2_max_ind]
+        # Empty cropped DataFrame
+        self.csd.csd_cropped = pd.DataFrame(0, 
+                                            index=self.csd.v_1_values[0:self.cropped_v1_max_ind], 
+                                            columns=self.csd.v_2_values[0:self.cropped_v2_max_ind],
+                                            dtype=np.float32)
+        # Crop CSD using cropping values
+        csd_cropped = self.csd.csd.truncate(after=self.cropped_v1_max, axis=1, copy=True)
+        self.csd.csd_cropped = csd_cropped.truncate(after=self.cropped_v2_max, copy=True)
+        # Crop derivative
+        csd_der_cropped = self.csd.csd_der.truncate(after=self.cropped_v1_max, axis=1, copy=True)
+        self.csd.csd_der_cropped = csd_der_cropped.truncate(after=self.cropped_v2_max, copy=True)
+        
 
     def generate_bitmap(self, threshold, threshold_type='percentile', plotting=False):
         '''
@@ -145,11 +173,12 @@ class CSDAnalysis:
         Returns
         -------
         None
-
         '''
+
         if threshold_type.lower() == 'percentile':
             # Converts percentile type threshold into absolute type to use same for loop
             threshold = np.nanpercentile(self.csd.csd_der, threshold)
+            threshold_cropped = np.nanpercentile(self.csd.csd_der_cropped, threshold)
 
         elif threshold_type.lower() == 'absolute':
             # Do nothing to the threshold, but avoid raising an error
@@ -162,9 +191,19 @@ class CSDAnalysis:
         self.csd_bitmap = self.csd.csd_der.mask(abs(self.csd.csd_der) > threshold, 
                                                 other=1).mask(abs(self.csd.csd_der) 
                                                 <= threshold, other=0)
+
+        # Make cropped bitmap (to be used in Hough Transform)
+        # Make bitmap
+        self.csd_bitmap_cropped = self.csd.csd_der_cropped.mask(abs(self.csd.csd_der_cropped) > 
+                                                    threshold_cropped, 
+                                                    other=1).mask(abs(self.csd.csd_der_cropped)
+                                                    <= threshold_cropped, other=0)
+        
+        # Plot bitmap
         if plotting is True:
-            self.__plot_heatmap(self.csd_bitmap, self.csd.v_1_values, self.csd.v_2_values, 
-                                r'V$_1$', r'V$_2$')
+            self.__plot_heatmap(self.csd_bitmap_cropped, 
+                                self.csd.v_1_values[0:self.cropped_v1_max_ind],
+                                self.csd.v_2_values[0:self.cropped_v2_max_ind], r'V$_1$', r'V$_2$')
 
     def plot(self, derivative=False):
         '''
@@ -230,13 +269,13 @@ class CSDAnalysis:
             Values of distance for which accumulator swept over
 
         '''
-        # Get charge stability diagram bitmap
-        img = self.csd_bitmap
+        # Get cropped charge stability diagram bitmap
+        img = self.csd_bitmap_cropped
         
         # Rho and Theta ranges
         thetas = np.deg2rad(np.linspace(theta_min, theta_max, num=num_thetas))
-        #TODO review the following 3 lines of code -- seems they are repeated below\
-        #but only the variables created in the second block of code are used
+        # TODO review the following 3 lines of code -- seems they are repeated below
+        # but only the variables created in the second block of code are used
         width = img.columns[-1]
         height = img.index[-1]
         diag_len = np.sqrt(width ** 2 + height ** 2)
@@ -466,7 +505,8 @@ class CSDAnalysis:
         cbar: bool
             Whether or not to display a colobar for the heatmap (Default 
             False)
-        cbar_kws: Colorbar keyword arguments to pass to plot (Default
+        cbar_kws: dict
+            Colorbar keyword arguments to pass to plot (Default
             None, initialized to empty dictionary)
         
         Returns
@@ -481,6 +521,7 @@ class CSDAnalysis:
         # Cast to a dataframe if data is not already for ease of plotting
         if not isinstance(data, type(pd.DataFrame())):
             data = pd.DataFrame(data, index=y_values, columns=x_values)
+        
         s = sns.heatmap(data, cbar=cbar, xticklabels=int(self.csd.num/5), 
                         yticklabels=int(self.csd.num/5), cbar_kws=cbar_kws)
         # Flip y axis so y_values increasing from bottom to top 
@@ -661,11 +702,10 @@ class CSDAnalysis:
         ax.set(xlabel=r'V$_1$', ylabel=r'V$_2$')
         plt.show()
 
-    def delta_V_from_csd (self, plot_der=False):
+    def find_chg_transitions (self, plot_der=False):
         '''
-        From the charge stability diagram (CSD), extracts the voltage
-        change in gate 1(2) required to increase the occupancy of 
-        dot 1(2) by one electron.
+        Helper function to find charge transition values from the
+        charge stability diagram.
 
         Parameters
         ----------
@@ -674,11 +714,10 @@ class CSDAnalysis:
 
         Returns
         -------
-        delta_V1(2): From the CSD, the voltage difference between charge
-            transitions. Returns None if there is only one charge 
-            transition in the CSD along the V1(2) direction.
+        chg_transitions: 2D list of charge transition locations. 
+            Element 0(1) is a 1D list of x(y)-coordinates of 
+            charge transitions for dot 1(2). 
         '''
-        
         # find the x, y, total derivatives respectively of the CSD; replace Nans with 0s
         # if self.csd.csd_der doesnt already exist, take derivative
         if not isinstance(self.csd.csd_der, pd.core.frame.DataFrame):
@@ -702,6 +741,7 @@ class CSDAnalysis:
 
         # find points with non-zero derivative in x-direction (for delta_V1)
         for i in range (len(self.csd.v_1_values)-2):
+
             # append voltage value to list of charge transition values if derivative exceeds threshold
             if self.csd.csd_der.iloc[0, i] >= thresh:
                 reg_sum += self.csd.v_1_values[i]
@@ -709,10 +749,18 @@ class CSDAnalysis:
             # if three subsequent derivative values are below threshold, end chg transition region
             elif all([self.csd.csd_der.iloc[0, i],self.csd.csd_der.iloc[0, i+1], \
                 self.csd.csd_der.iloc[0, i+2]])<thresh and reg_num!=0:
-                chg_trans_1.append (reg_sum/reg_num)
+                trans_val = reg_sum/reg_num
+                # make sure we have a point in the V2 values
+                difference_array = np.absolute(self.csd.csd_der.columns - trans_val)
+                index = difference_array.argmin()
+                chg_trans_1.append(self.csd.csd_der.columns[index])
                 reg_sum, reg_num = 0, 0
         if reg_num != 0:
-            chg_trans_1.append (reg_sum/reg_num)
+            trans_val = reg_sum/reg_num
+            # make sure we have a point in the V2 values
+            difference_array = np.absolute(self.csd.csd_der.columns - trans_val)
+            index = difference_array.argmin()
+            chg_trans_1.append(self.csd.csd_der.columns[index])
 
         # reset sum, number, and max of values in charge transition region
         reg_sum, reg_num = 0, 0
@@ -727,11 +775,19 @@ class CSDAnalysis:
             # if three subsequent derivative values are zero, denotes end of chg transition region
             elif all([self.csd.csd_der.iloc[i, 0],self.csd.csd_der.iloc[i+1, 0], \
                 self.csd.csd_der.iloc[i+2, 0]])<thresh and reg_num!=0:
-                chg_trans_2.append (reg_sum/reg_num)
+                trans_val = reg_sum/reg_num
+                # make sure we have a point in the V2 values
+                difference_array = np.absolute(self.csd.csd_der.index - trans_val)
+                index = difference_array.argmin()
+                chg_trans_2.append(self.csd.csd_der.index[index])
                 reg_sum, reg_num = 0, 0
         if reg_num != 0:
-            chg_trans_2.append (reg_sum/reg_num)
-
+            trans_val = reg_sum/reg_num
+            # make sure we have a point in the V2 values
+            difference_array = np.absolute(self.csd.csd_der.index - trans_val)
+            index = difference_array.argmin()
+            chg_trans_2.append(self.csd.csd_der.index[index])
+    
         if plot_der:
             # printing for comparing values with that of the plot
             print ('transitions, dot 1: ', chg_trans_1)
@@ -744,22 +800,47 @@ class CSDAnalysis:
             ax1.plot(self.csd.v_1_values, self.csd.csd_der.iloc[0,:])
             ax2.set_title("V2 vs derivative")
             ax2.plot(self.csd.v_2_values, self.csd.csd_der.iloc[:,0])
+            plt.figure() # new figure for next plot
+
+        chg_transitions = [chg_trans_1, chg_trans_2]
+        self.chg_transitions = chg_transitions
+
+        return chg_transitions
+
+    def delta_V_from_csd (self, chg_transitions):
+        '''
+        From the charge stability diagram (CSD), extracts the voltage
+        change in gate 1(2) required to increase the occupancy of 
+        dot 1(2) by one electron.
+
+        Parameters
+        ----------
+        chg_transitions: Output from find_chg_transitions -- 2D list 
+            of charge transition locations. Element 0(1) is a 1D list
+            of x(y)-coordinates of charge transitions for dot 1(2).
+
+        Returns
+        -------
+        delta_V1(2): From the CSD, the voltage difference between charge
+            transitions. Returns None if there is only one charge 
+            transition in the CSD along the V1(2) direction.
+        '''
 
         # calculate voltage difference between adjacent dot 1 transition regions - this is delta_V1
-        if len(chg_trans_1) > 1:
-            delta_V1 = chg_trans_1[1] - chg_trans_1[0] 
+        if len(chg_transitions[0]) > 1:
+            delta_V1 = chg_transitions[0][1] - chg_transitions[0][0]
         else:
             delta_V1 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V1 direction to ' +
-                    'determine delta_V1. Function will return None for delta_V1 value')
+            print ("CSD needs a minimum of two charge transitions on CSD in V1 direction to" 
+                    + " determine delta_V1. Function will return None for delta_V1 value")
         
         # calculate voltage difference between adjacent dot 2 transition regions - this is delta_V2
-        if len(chg_trans_2) > 1:
-            delta_V2 = chg_trans_2[1] - chg_trans_2[0]
+        if len(chg_transitions[1]) > 1:
+            delta_V2 = chg_transitions[1][1] - chg_transitions[1][0]
         else:
             delta_V2 = None
-            print ('CSD needs a minimum of two charge transitions on CSD in V2 direction to ' +
-                    'determine delta_V2. Function will return None for delta_V2 value')
+            print ("CSD needs a minimum of two charge transitions on CSD in V2 direction to"
+                    + " determine delta_V2. Function will return None for delta_V2 value")
 
         # add delta_V1(2) values to Hubbard parameters dictionary
         self.hubbard_params['delta_V1'] = delta_V1
