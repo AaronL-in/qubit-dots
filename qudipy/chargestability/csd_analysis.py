@@ -105,8 +105,9 @@ class CSDAnalysis:
             if self.capacitances is None:
                 raise Warning("Blurring of data cannot occur when no capaciatnce are provided." 
                                 + " Data will not be changed")
-            self.csd.csd = pd.DataFrame(gaussian_filter(self.csd.csd, blur_sigma),
-                columns=self.csd.v_1_values, index=self.csd.v_2_values)
+            else:
+                self.csd.csd = pd.DataFrame(gaussian_filter(self.csd.csd, blur_sigma),
+                                            columns=self.csd.v_1_values, index=self.csd.v_2_values)
 
     def generate_bitmap(self, threshold, threshold_type='percentile', plotting=False):
         '''
