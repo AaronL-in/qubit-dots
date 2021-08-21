@@ -21,9 +21,9 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
     potential or electric field files.
     Parameters
     ----------
-    all_data_sep : dict
+    load_data_dict : dict
         Dictionary containing the x and y coordinates for the loaded files,
-        the potential data for each loaded file, and the corresponding votlage
+        the potential data for each loaded file, and the corresponding voltage
         vector for each file.
         Fields = ['coords', 'potentials', 'ctrl_vals']
         
@@ -83,7 +83,7 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
     # correct format
     if y_slice is not None:
         y_idx = qd.utils.find_nearest(y_coords, y_slice)[0]
-    for idx, curr_gate_idx in enumerate(product(*temp_n_dims)):
+    for idx,_ in enumerate(product(*temp_n_dims)):
         if y_slice is None:
             all_data_stacked[idx,:,:] = load_data_dict['potentials'][idx]
         else:
@@ -119,8 +119,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     ----------
     ctrl_vals : list of list of floats
         List of relevant control values for the files to load.  The first list
-        index corresponds to the ith control variable and the second list
-        index correspond to the ith value for that control variable.
+        index corresponds to the i-th control variable and the second list
+        index correspond to the j-th value for that control variable.
     ctrl_names : list of strings
         List of each ctrl variable name. Must be the same length as ctrl_vals 
         first dimension.
@@ -130,9 +130,9 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     f_type : string, optional
         Type of file to load (either potential or electric field). Acceptable 
         arguments include ['pot','potential','Uxy','electric','field','Ez'].
-        Default is potential. The default is 'pot'
+        The default is 'pot'.
     f_dir : string, optional
-        Path to find files specified in f_list. The default is is the current
+        Path to find files specified in f_list. The default is the current
         working directory.
     f_pot_units : string, optional
         Units of the potential in the files to load. Units from file will be
@@ -237,7 +237,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         cval_array.append(list(curr_cvals))
 
         # Do a spline interpolation to find potential at the 'trimmed' and 
-        # power of 2 coordiante points.
+        # power of 2 coordinate points.
         f = interp2d(x, y, pot, kind='cubic')
         new_pot = f(new_x, new_y)
         pots_array.append(new_pot)
@@ -249,7 +249,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     
     return all_files
 
-def analytical_potential(ctrl_vals, ctrl_names, function, x_range, y_range):
+def analytical_potential(ctrl_vals, ctrl_names, function, x_range, y_range, **kwargs):
     '''
     Allows one to create an analytical potential in the xy-plane from a function
     Parameters
@@ -262,13 +262,15 @@ def analytical_potential(ctrl_vals, ctrl_names, function, x_range, y_range):
         List of each ctrl variable name. Must be the same length as ctrl_vals 
         first dimension.
     function : callable
-        Function which defines the 2D potential you wish to map out. function
+        Function which defines the 2D potential you wish to map out. Function
         must take the list ctrl_vals as the first argument and a GridParameters 
         object as the second argument. Refer to tutorial for an explicit example
     x_range : 1D List or Numpy array
         grid points along x where you want to potential to be calculated
     y_range : 1D List or Numpy array
         grid points along y where you want to potential to be calculated
+    kwargs: dictionary
+        Additional parameters that the function could take
 
     Returns
     -------
@@ -285,7 +287,7 @@ def analytical_potential(ctrl_vals, ctrl_names, function, x_range, y_range):
     cval_array = []
     pots_array = []
     for curr_cvals in product(*ctrl_vals):
-        pots_array.append(function(curr_cvals, gparams))
+        pots_array.append(function(curr_cvals, gparams, **kwargs))
         cval_array.append(list(curr_cvals))
 
     # Create named tuple for coordinates

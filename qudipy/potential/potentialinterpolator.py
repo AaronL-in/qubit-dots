@@ -13,7 +13,7 @@ from scipy.optimize import fminbound
 import qudipy as qd
 import qudipy.utils as utils
 from qudipy.qutils.solvers import solve_schrodinger_eq
-from qudipy.qutils.qmath import inner_prod
+from qudipy.qutils.math import inner_prod
 from qudipy.potential import GridParameters
 
 class PotentialInterpolator:
@@ -32,7 +32,8 @@ class PotentialInterpolator:
         interp_data : nd array
             Array of 2D potential (or electric field) data which is to be
             interpolated. Number of dimensions should be number of controls +2
-            (where the +2 is for x and y coords)
+            for x coords (last dimension) and y coords (second to last 
+            dimension) 
         single_dim_idx : list of ints
             List of all control indices which only have a singleton dimension.
 
@@ -43,7 +44,7 @@ class PotentialInterpolator:
             The default is a Constants object assuming vacuum as the material
             system.
         y_slice : float, optional
-            Used to create a interpolator of only 1D poetentials. Specify a 
+            Used to create an interpolator of only 1D poetentials. Specify a 
             slice along the y-axis at which to take the 1D potential when 
             constructing the interpolator. Units should be specified in [m]. 
             The default is None.
@@ -100,7 +101,7 @@ class PotentialInterpolator:
             
         Returns
         -------
-        result : 2D float array
+        interpolated_pot : 2D float array
             Interpolated 2D potential at the supplied control variable value
             vectors.
         '''
@@ -136,9 +137,9 @@ class PotentialInterpolator:
                                  ' range of grid vectors.')
         # Get number of control vector inputs
         try:
-            n_pts = len(volt_vec[0])
+            n_inputs = len(volt_vec[0])
         except:
-            n_pts = 1 
+            n_inputs = 1 
             
         # Get a 1D array of all coordinate points we need to query the
         # interpolator at
@@ -159,7 +160,7 @@ class PotentialInterpolator:
                                 
         # Repeat the set of coordinate points n times, 1 for each control 
         # vector input
-        coord_data = np.tile(coord_data,n_pts)
+        coord_data = np.tile(coord_data,n_inputs)
         
         # Now stack the control vector inputs and repeat them for each
         # coordinate point
@@ -173,12 +174,14 @@ class PotentialInterpolator:
         
         # Reshape back to our original shape
         if self.grid_type == '2D':
-            result = np.squeeze(out_array.reshape((n_pts, self.y_coords.size,
-                                               self.x_coords.size)))
+            interpolated_pot = np.squeeze(out_array.reshape((n_inputs, 
+                                                        self.y_coords.size,
+                                                    self.x_coords.size)))
         elif self.grid_type == '1D':
-            result = np.squeeze(out_array.reshape((n_pts, self.x_coords.size)))
+            interpolated_pot = np.squeeze(out_array.reshape((n_inputs, 
+                                                        self.x_coords.size)))
             
-        return result
+        return interpolated_pot
         
     
     def plot(self, volt_vec, plot_type='2D', y_slice=0, x_slice=None,
