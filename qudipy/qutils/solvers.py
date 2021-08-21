@@ -9,9 +9,9 @@ import time
 import qudipy as qd
 import qudipy.exchange as ex
 from scipy import sparse
-from scipy.sparse.linalg import eigs 
+from scipy.sparse.linalg import eigsh 
 from scipy.linalg import eigh
-from qudipy.qutils.qmath import inner_prod
+from qudipy.qutils.math import inner_prod
 
 def build_1DSE_hamiltonian(consts, gparams):
     ''' 
@@ -145,8 +145,8 @@ def solve_schrodinger_eq(consts, gparams, n_sols=1):
     elif gparams.grid_type == '2D':
         hamiltonian = build_2DSE_hamiltonian(consts, gparams)   
         
-    # Solve the schrodinger equation (eigenvalue problem)
-    eig_ens, eig_vecs = eigs(hamiltonian.tocsc(), k=n_sols, M=None,
+    # Solve the Schrodinger equation (eigenvalue problem)
+    eig_ens, eig_vecs = eigsh(hamiltonian.tocsc(), k=n_sols, M=None,
                                            sigma=gparams.potential.min())
     
     # Sort the eigenvalues in ascending order (if not already)
@@ -182,10 +182,10 @@ def solve_schrodinger_eq(consts, gparams, n_sols=1):
     
     return eig_ens, eig_vecs
 
-def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4, 
+def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4, 
                        consts=qd.Constants("vacuum"), optimize_omega=True,
-                       omega=None, opt_omega_n_se=2, ho_CMEs=None, 
-                       CME_path=None, spin_subspace='all'):
+                       omega=None, opt_omega_n_se=2, ho_cmes=None, 
+                       cme_dir=None, spin_subspace='all'):
     '''
     This function calculates the many electron energy spectra given an
     arbitrary potential landscape. The energy spectra is found using a modified
@@ -215,9 +215,9 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4,
         DESCRIPTION. The default is None.
     opt_omega_n_se : TYPE, optional
         DESCRIPTION, The default is 2.
-    ho_CMEs : TYPE, optional
+    ho_cmes : TYPE, optional
         DESCRIPTION. The default is None.
-    CME_path : TYPE, optional
+    cme_dir : TYPE, optional
         DESCRIPTION. The default is None.
     spin_subspace : TYPE, optional
         DESCRIPTION. The default is 'all'.
@@ -272,7 +272,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4,
     print('Finding A matrix...\n')
     
     a_mat_time = time.time()
-    __, a_mat, lcho_ens = ex.find_H_unitary_transformation(gparams, origin_hos, 
+    __, a_mat, lcho_ens = ex.basis_transform(gparams, origin_hos, 
                                                            consts=consts, 
                                                            unitary=True,
                                                            ortho_basis=True)
@@ -288,14 +288,24 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4,
     #************#
     # CME matrix #
     #************#
-    if ho_CMEs:
-        print('Harmonic orbital CME matrix supplied as an argument!\n');
+    if ho_cmes:
+        print('Harmonic orbital CME matrix supplied as an argument!\n')
+    elif cme_dir:
+        print('Loading harmonic orbital CME matrix from the specified '+
+                        'directory\n')
+        try:
+            with open(cme_dir+f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy',
+                                         'rb') as f:
+                ho_cmes = np.load(f)
+        except FileNotFoundError:
+            print('CME library of the specified dimensions is not found')
+
     else:
         print('Harmonic orbital CME matrix NOT supplied as an argument!\n'+
               'Will construct the CME matrix now...\n')
         
         cme_time = time.time()
-        ho_CMEs = ex.calc_origin_CME_matrix(n_xy_ho[0], n_xy_ho[1], omega=1.0)
+        ho_cmes = ex.calc_origin_cme_matrix(n_xy_ho[0], n_xy_ho[1], omega=1.0)
         cme_time = time.time() - cme_time
         print('Done!')
         print(f'Elapsed time is {cme_time} seconds.\n')
@@ -320,7 +330,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4,
     # Now do a basis transformation using a_mat
     full_trans_mat = np.kron(a_mat, a_mat)
     
-    se_CMEs = full_trans_mat @ (ho_CMEs / A) @ full_trans_mat.conj().T
+    se_cmes = full_trans_mat @ (ho_cmes / A) @ full_trans_mat.conj().T
     
     transform_time = time.time() - transform_time
     print('Done!')
@@ -336,7 +346,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se, n_sols=4,
     # Build the 2nd quantization Hamiltonian and then diagonalize it to
     # obtain the egienvectors and eigenenergies of the many electron system.
     ham_2q = ex.build_second_quant_ham(n_elec, spin_subspace, n_se, lcho_ens,
-                                       se_CMEs)
+                                       se_cmes)
     
     build2nd_time = time.time() - build2nd_time
     print('Done!\n')

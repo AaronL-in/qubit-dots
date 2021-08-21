@@ -13,6 +13,7 @@ from scipy.optimize import minimize
 from scipy.special import gamma, beta
 from tqdm import tqdm
 import time
+import os
 
 def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15, 
                       n_se_orbs=2, opt_tol=1E-7, consts=qd.Constants("vacuum")):
@@ -24,7 +25,7 @@ def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15,
 
     Parameters
     ----------
-    gparams : GridParamters object
+    gparams : GridParameters object
         Contains the grid and potential information.
     nx : int
         Number of modes along the x direction to include in the harmonic 
@@ -85,16 +86,16 @@ def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15,
                                   consts=consts)
         
         # Get current overlap matrix between HOs and SE orbitals
-        S_matrix = qd.qutils.qmath.find_overlap_matrix(gparams, se_orbitals, 
+        S_matrix = qd.qutils.math.find_overlap_matrix(gparams, se_orbitals, 
                                                        curr_HOs)
         
         # S contains all <SE_i|HO_j> inner products. If we have chosen a good 
         # omega, then SUM(|<SE_i|HO_j>|^2) will be close to 1. Therefore, we
         # want to maximize this value.
-        min_condition = np.abs(1-np.diag(S_matrix.conj().T @ S_matrix))
+        min_condition = np.abs(1 - np.diag(S_matrix.conj().T @ S_matrix))
         # Average the min condition with respect to the number of SE orbitals
         # so the ideal min condition = 1
-        min_condition = np.sum(min_condition)/n_se_orbs
+        min_condition = np.sum(min_condition) / n_se_orbs
         
         return min_condition
         
@@ -105,7 +106,7 @@ def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15,
                              x0=np.log10(omega_guess), method='BFGS',
                              options={'gtol': opt_tol})
             
-    # If optimzation was successful, return optimal omega and optimal basis
+    # If optimization was successful, return optimal omega and optimal basis
     if 'success' in opt_result.message:
         print(opt_result.message)
         opt_omega = 10**opt_result.x
@@ -124,7 +125,7 @@ def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15,
 def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
                    consts=qd.Constants('vacuum')):
     '''
-    Build of basis of 1D or 2D harmonic orbitals centered at the origin of the
+    Build the basis of 1D or 2D harmonic orbitals centered at the origin of the
     coordinate system.
 
     Parameters
@@ -132,7 +133,9 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
     gparams : GridParameters object
         Contains grid and potential information.
     omega : float
-        Harmonic frequency of the harmonic orbital basis to build.
+        Harmonic frequency of the harmonic orbital basis along the x direction. 
+        By default, the one along y direction has the same value; a different
+        value can be specified by the ecc argument (see below). 
     nx : int
         Number of modes along the x direction to include in the basis set.
         
@@ -153,7 +156,7 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
     HOs : array
         The constructed harmonic orbital basis where the first axis of the 
         array corresponds to a different harmonic orbital (HOs[n,:] for 1D and
-        HOs[n,:,:] for 2D). If gparams describes a 2D grid then the harmonic
+        HOs[n,:,:] for 2D). If gparams describes a 2D grid, then the harmonic
         orbitals are ordered first by y, then by x.
 
     '''
@@ -161,22 +164,23 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
     # Initialize the array for storing all the created harmonic orbitals and
     # get corresponding harmonic confinements along x and y
     omega_x = omega
-    # Used for shorter expressions when building harmonic orbitals
-    alpha_x = np.sqrt(consts.me*omega_x/consts.hbar)
+    # Inverse characteristic length: used for shorter expressions when building 
+    # harmonic orbitals
+    alpha_x = np.sqrt(consts.me * omega_x / consts.hbar)
     if gparams.grid_type == '1D':
         HOs = np.zeros((nx, gparams.nx), dtype=complex)
     elif gparams.grid_type == '2D':
-        omega_y = omega_x*ecc
+        omega_y = omega_x * ecc
          # Used for shorter expressions when building harmonic orbitals
-        alpha_y = np.sqrt(consts.me*omega_y/consts.hbar)
+        alpha_y = np.sqrt(consts.me * omega_y / consts.hbar)
         HOs = np.zeros((nx*ny, gparams.ny, gparams.nx), dtype=complex)
     
 
-    # Construct all of the hermite polynomials we will use to build up the
-    # full set of HOs. We will store each nth hermite polynomial to make this
+    # Construct all of the Hermite polynomials we will use to build up the
+    # full set of HOs. We will store each nth Hermite polynomial to make this
     # more efficient while using the recursion formula to find higher order
     # polynomials.
-    def _get_hermite_n(n, hermite_sub1, hermite_sub2, x_arg):
+    def _get_hermite_n(n, hermite_sub1, hermite_sub2, coords):
         '''
         Helper function for finding the n_th hermite polynomial IF the previous
         two nth polynomials are known.
@@ -189,8 +193,8 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
             The H_{n-1} hermite polynomial (if applicable).
         hermite_sub2 : array
             The H_{n-2} hermite polynomial (if applicable).
-        x_arg : array
-            x-coordinates for the current hermite polynomial.
+        coords : array
+            coordinates for the current hermite polynomial.
 
         Returns
         -------
@@ -201,13 +205,13 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
         
         # Base case 0
         if n == 0:
-            return np.ones(x_arg.size)
+            return np.ones(coords.size)
         # Base case 1
         elif n == 1:
-            return 2*x_arg
+            return 2*coords
         # All other cases
         else:
-            return 2*x_arg*hermite_sub1 - 2*(n-1)*hermite_sub2
+            return 2*coords*hermite_sub1 - 2*(n-1)*hermite_sub2
     
     # Construct all the hermite polynomials which we will use to build up the
     # full set of HOs.   
@@ -235,22 +239,26 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
                                                   y_hermites[idx-2,:],
                                                   alpha_y*gparams.y)
 
-    # Now that the hermite polynomials are built, construct the 1D harmonic
+    # Now that the Hermite polynomials are built, construct the 1D harmonic
     # orbitals
     # x first
     x_HOs = np.zeros((nx, gparams.nx), dtype=complex)
     for idx in range(nx):
         # Build harmonic orbital
-        coeff = 1/np.sqrt(2**idx*math.factorial(idx))*(alpha_x**2/math.pi)**(1/4)
-        x_HOs[idx,:] = coeff*np.exp(-alpha_x**2*gparams.x**2/2)*x_hermites[idx,:]
+        coeff = 1 / np.sqrt(2**idx * math.factorial(idx)) * (alpha_x ** 2 / 
+                                                             math.pi) ** (1/4)
+        x_HOs[idx,:] = coeff * np.exp(-alpha_x**2 *
+                                         gparams.x**2 / 2) * x_hermites[idx,:]
         
     # y now (if applicable)
     if gparams.grid_type == '2D':
         y_HOs = np.zeros((ny, gparams.ny), dtype=complex)
         for idx in range(ny):
             # Build harmonic orbital
-            coeff = 1/np.sqrt(2**idx*math.factorial(idx))*(alpha_y**2/math.pi)**(1/4)
-            y_HOs[idx,:] = coeff*np.exp(-alpha_y**2*gparams.y**2/2)*y_hermites[idx,:]
+            coeff = 1 / np.sqrt(2**idx * math.factorial(idx)) * (alpha_y ** 2 / 
+                                                             math.pi) ** (1/4)
+            y_HOs[idx,:] = coeff * np.exp(-alpha_y**2 * gparams.y**2
+                                                     / 2) * y_hermites[idx,:]
 
     # If building for a 2D grid, build the 2D harmonic orbital states
     if gparams.grid_type == '1D':
@@ -267,15 +275,15 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
                 _, curr_y_HO = np.meshgrid(np.ones(gparams.nx),curr_y_HO)
                 
                 # Make 2D harmonic orbital
-                HOs[idx_cnt,:,:] = curr_x_HO*curr_y_HO                
+                HOs[idx_cnt,:,:] = curr_x_HO * curr_y_HO                
                 idx_cnt += 1
                 
     return HOs
         
-# HELP WITH COMING UP WITH A SHORTER NAME 
+
 # Also, this is a good example of a code that should be "generalized" to 
 # handle a Hamiltonian class
-def find_H_unitary_transformation(gparams, new_basis, 
+def basis_transform(gparams, new_basis, 
                               consts=qd.Constants('vacuum'), unitary=True,
                               ortho_basis=False):
     '''
@@ -289,7 +297,7 @@ def find_H_unitary_transformation(gparams, new_basis,
     new_basis : n-d array
         A multi-dimensional array corresponding to the basis we will transform
         the Hamiltonian into. The first dimension should correspond to the 
-        index of each basis state.
+        index of each basis state (i.e. basis vectors should be stored as rows).
         
     Keyword Arguments
     -----------------
@@ -312,10 +320,10 @@ def find_H_unitary_transformation(gparams, new_basis,
         The Hamiltonian written in the new basis.
     U : 2d array
         The unitary transformation that yields U*H*U^-1 = H' where H is the
-        original hamiltonian and H' is the hamiltonian in the new basis. This
+        original Hamiltonian and H' is the Hamiltonian in the new basis. This
         is only returned when unitary=True.
     eig_ens : 1d array
-        The eigenergies of the hamiltonian written in the new basis.
+        The eigenergies of the Hamiltonian written in the new basis.
 
     '''
     
@@ -325,7 +333,7 @@ def find_H_unitary_transformation(gparams, new_basis,
     elif gparams.grid_type == '2D':
         ham = qd.qutils.solvers.build_2DSE_hamiltonian(consts, gparams)
         
-    # Intialize hamiltonian for the basis transformation
+    # Intialize Hamiltonian for the basis transformation
     n_basis_states = new_basis.shape[0]
     ham_new = np.zeros((n_basis_states,n_basis_states), dtype=complex)
     
@@ -350,7 +358,7 @@ def find_H_unitary_transformation(gparams, new_basis,
             state_L = new_basis[j,:]
 
             # Evaluate <i|H|j>
-            ham_new[i,j] = qd.qutils.qmath.inner_prod(gparams, state_L, state_R)
+            ham_new[i,j] = qd.qutils.math.inner_prod(gparams, state_L, state_R)
 
     # Now lower triangular elements
     ham_new += ham_new.conj().T
@@ -373,13 +381,13 @@ def find_H_unitary_transformation(gparams, new_basis,
             state_R = gparams.convert_NO_to_MG(state_R)
 
         # Evaluate <i|H|i>
-        ham_new[i,i] = qd.qutils.qmath.inner_prod(gparams, state_L, state_R)
+        ham_new[i,i] = qd.qutils.math.inner_prod(gparams, state_L, state_R)
             
-    # Correct any numerical issues and force Hamiltonian to be hermitian
+    # Correct any numerical issues and force Hamiltonian to be Hermitian
     ham_new = (ham_new + ham_new.conj().T)/2;
     
     # Now calculate the unitary transformation to convert H -> H' (if desired)
-    # U*H*U^-1 = H'
+    # U H U^-1 = H'
     if unitary is False:
         return ham_new
     else:
@@ -388,7 +396,7 @@ def find_H_unitary_transformation(gparams, new_basis,
         if ortho_basis is True:
             eig_ens, U = eigh(ham_new)
         else:
-            S_matrix = qd.qutils.qmath.find_overlap_matrix(gparams, new_basis,
+            S_matrix = qd.qutils.math.find_overlap_matrix(gparams, new_basis,
                                                            new_basis)
             eig_ens, U = eigh(ham_new, S_matrix)
 
@@ -400,41 +408,47 @@ def find_H_unitary_transformation(gparams, new_basis,
     return ham_new, U, eig_ens
         
         
-def __calc_origin_CME(na, ma, nb, mb, ng, mg, nd, md, rydberg=False):
+def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
+                         mg:int, nd:int, md:int, rydberg=False):
     '''
-    Assumes SI units
+    Helper function that calculates the matrix elements of Coulomb
+    interaction in the harmonic orbital basis. 
+    See formula 7 in the exchange interaction paper for definition: 
+    https://www.overleaf.com/project/5e879589e03b60000124dce7
+    The function assumes SI units by default. 
 
     Parameters
     ----------
-    na : TYPE
-        DESCRIPTION.
-    ma : TYPE
-        DESCRIPTION.
-    nb : TYPE
-        DESCRIPTION.
-    mb : TYPE
-        DESCRIPTION.
-    ng : TYPE
-        DESCRIPTION.
-    mg : TYPE
-        DESCRIPTION.
-    nd : TYPE
-        DESCRIPTION.
-    md : TYPE
-        DESCRIPTION.
+    na : integer
+        n_alpha parameter of the harmonic bra-function 
+    ma : integer
+        m_alpha parameter of the harmonic bra-function 
+    nb : integer
+        n_beta parameter of the harmonic bra-function 
+    mb : integer
+        m_beta parameter of the harmonic bra-function 
+    ng : integer
+        n_gamma parameter of the harmonic ket-function 
+    mg : integer
+        m_gamma parameter of the harmonic ket-function 
+    nd : integer
+        n_delta parameter of the harmonic ket-function 
+    md : integer
+        m_delta parameter of the harmonic ket-function 
         
     Keyword Arguments
     -----------------
-    rydberg : TYPE
-        DESCRIPTION.
+    rydberg : bool
+        Specifies whether the result should be outputted in the effective
+        Rydberg units rather than SI. False by default.
 
     Returns
     -------
-    None.
-
+    CME: float 
+        The Coulomb matrix element. 
     '''
     
-    CME = 0
+    cme = 0
     
     # Initialize a and p
     a0 = na + nb + ng + nd
@@ -446,84 +460,101 @@ def __calc_origin_CME(na, ma, nb, mb, ng, mg, nd, md, rydberg=False):
     # that we don't need to consider the -2*p_i terms in a and b because
     # those are even.
     if a0 % 2 != 0 or b % 2 != 0:
-        return(CME)
+        return(cme)
     
     for p1 in range(min(na,nd)+1):
-        coef1 = math.factorial(p1)*qd.utils.nchoosek(na,p1)*\
-            qd.utils.nchoosek(nd,p1)
+        coef1 = math.factorial(p1) * qd.utils.nchoosek(na,p1) * \
+            qd.utils.nchoosek(nd, p1)
         
         # Continue building a and p
-        a1 = a0 - 2*p1;
-        pInd1 = pInd0 - 2*p1
+        a1 = a0 - 2 * p1;
+        pInd1 = pInd0 - 2 * p1
         
         for p2 in range(min(ma,md)+1):
-            coef2 = coef1*math.factorial(p2)*qd.utils.nchoosek(ma,p2)*\
+            coef2 = coef1 * math.factorial(p2) * qd.utils.nchoosek(ma,p2) * \
                 qd.utils.nchoosek(md,p2)
             
             # Continue building p
-            pInd2 = pInd1 - 2*p2
+            pInd2 = pInd1 - 2 * p2
             
-            for p3 in range(min(nb,ng)+1):
-                coef3 = coef2*math.factorial(p3)*qd.utils.nchoosek(nb,p3)*\
+            for p3 in range(min(nb,ng) + 1):
+                coef3 = coef2 * math.factorial(p3) * qd.utils.nchoosek(nb,p3) * \
                     qd.utils.nchoosek(ng,p3)
                 
                 # Finish building a and continue building and p
-                a = a1 - 2*p3
-                pInd3 = pInd2 - 2*p3
+                a = a1 - 2 * p3
+                pInd3 = pInd2 - 2 * p3
     
                 for p4 in range(min(mb,mg)+1):                 
-                    coef4 = coef3*math.factorial(p4)*qd.utils.nchoosek(mb,p4)*\
-                        qd.utils.nchoosek(mg,p4)
+                    coef4 = coef3 * math.factorial(p4) * \
+                            qd.utils.nchoosek(mb,p4) * qd.utils.nchoosek(mg,p4)
                     
                     # Finish building p
-                    p = (pInd3 - 2*p4)/2
+                    p = (pInd3 - 2 * p4) / 2
                     
                     # Skip this sum term if 2p is odd
                     if p % 2 != 0:
                         continue
                     
                     # Calculate the CME
-                    CME = CME + (-1)**p * coef4 * gamma(p + 1/2) *\
+                    cme = cme + (-1)**p * coef4 * gamma(p + 1/2) *\
                         beta(p - ((a - 1)/2), (a + 1)/2)
     
-    # Take care of the sclar coefficients
-    globPhase = (-1)**(nb + mb + ng + mg)
-    CME = CME/(math.pi*math.sqrt(2))*globPhase
-    CME = CME/math.sqrt(math.factorial(na)*math.factorial(ma)*\
-        math.factorial(nb)*math.factorial(mb)*math.factorial(ng)*\
-        math.factorial(mg)*math.factorial(nd)*math.factorial(md))
+    # Take care of the scalar coefficients
+    globPhase = (-1) ** (nb + mb + ng + mg)
+    cme = cme/(math.pi * math.sqrt(2)) * globPhase
+    cme = cme / math.sqrt(math.factorial(na) * math.factorial(ma) *\
+        math.factorial(nb) * math.factorial(mb) * math.factorial(ng) *\
+        math.factorial(mg) * math.factorial(nd) * math.factorial(md))
         
     # If effective Rydberg units, then multiply by 2
     if rydberg:
-        CME = 2*CME
+        cme = 2 * cme
         
-    return CME 
+    return cme 
 
         
-def calc_origin_CME_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
-                           rydberg=False):
+def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
+                           rydberg=False, save_dir=os.getcwd()):
     '''
-    
+    Calculates the Coulomb interaction matrix in the basis of harmonic orbitals
+    centered at the origin.
 
     Parameters
     ----------
-    nx : TYPE
-        DESCRIPTION.
-    ny : TYPE
-        DESCRIPTION.
+    nx : int
+        Number of harmonic orbitals along the x direction
+    ny : int
+        Number of harmonic orbitals along the x direction
+
         
     Keyword Arguments
     -----------------
-    omega : TYPE, optional
-        DESCRIPTION. The default is 1.0.
-    consts : TYPE, optional
-        DESCRIPTION. The default is qd.Constants("vacuum").
-    rydberg : TYPE, optional
-        DESCRIPTION. The default is False.
+    omega : float, optional
+        Width of the harmonic well that defines the harmonic basis.
+        The default is 1.0.
+    consts : Constants object, optional
+        Specify the material system constants. The default is "vacuum".
+    rydberg : bool, optional
+        Specify whether to replace the default SI units with the Rydberg units. 
+        The default is False.
+    save_dir : string, optional
+        Path to save the CME array as a numpy native binary .npy.
+        Useful for faster calculations. The naming 
+        convention is as follows: "CME_{nx}x{xy}.npy". If None is specified, 
+        array is not saved. 
+        The default is the current working directory.
 
     Returns
     -------
-    None.
+    CMEs : 2d float array
+        Array of Coulomb matrix elements, grouped in a 2d form from 8d  
+        for convenient matrix multiplication. 
+        Compound indices along the rows:
+        (n_alpha, m_alpha, m_beta, n_beta), and along the colums:
+        (n_gamma, m_gamma, m_delta, n_delta), where the last index changes
+        the fastest
+
 
     '''
     
@@ -563,7 +594,7 @@ def calc_origin_CME_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
                 continue
             
             # Get the corresponding CME
-            CMEs[row_idx, col_idx] = __calc_origin_CME(n_alpha, m_alpha, 
+            CMEs[row_idx, col_idx] = __calc_origin_cme(n_alpha, m_alpha, 
                                                        n_beta, m_beta, 
                                                        n_gamma, m_gamma, 
                                                        n_delta, m_delta,
@@ -586,11 +617,41 @@ def calc_origin_CME_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
     CMEs *= k
     # Scale by omega if not the default value
     CMEs = CMEs if omega == 1.0 else CMEs*math.sqrt(omega)
-        
+    
+    if save_dir is not None: 
+        with open(save_dir+f'\\CMEs_{nx}x{ny}.npy', 'wb') as f:
+            np.save(f, CMEs)
     return CMEs
     
 
-def build_SO_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
+def bulid_so_basis(n_elec: int, spin_subspace, n_se_orbs: int):
+    """
+    Creates mapping between composite spin-orbit states of many-electron
+    system wit the explicit spin and orbital single-electron states.  
+
+    Parameters:
+        n_elec: int
+            Number of electrons in the system.
+        spin_subspace: int 1d array/iterable, or string
+            Subspace corresponding to the chosen eigenvalue of the total
+            spin operator Sz. The string 'all' can be also supplied to 
+            include all Sz-space into the calculation.
+        n_se_orbs: int
+            Number of single-electron orbitals considered. 
+
+    Returns:
+        map_so_basis: int 2D array
+            Rows represent encodings of the spin-orbit states for the single
+            electron spin and orbital states. Orbital states are in the 
+            1st column, spin states are in the 2nd column. Ordered by spin,
+            then by orbital
+        vec_so_basis: float 2D array
+            Encodings of the many-electron spin-orbit states that correspond
+            to the specified spin_subspace.
+            Each of the rows contains orbital (1 half) and spin (2 half)
+            configuration of each electron in the system.         
+        
+    """
     
     # Parse input, and convert to numpy array
     if spin_subspace == 'all':
@@ -655,7 +716,7 @@ def build_SO_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
     # From left to right, first spin-down and then spin-up.  Within a spin
     # species from left to right, sort by ascending energy level (i.e.
     # orbital index i). This simplifies construction of the 2nd quantization
-    # hamiltonian
+    # Hamiltonian
     for idx in range(n_2q_states):
         temp = vec_so_basis[idx, :]
         
@@ -676,7 +737,7 @@ def build_SO_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
     # one of the desired Sz subspaces, then remove that basis vector.
     # Note that we loop backwards through the states here because we
     # remove rows from the basisVectors matrix which readjusts the
-    # indicies of the non-deleted rows.
+    # indices of the non-deleted rows.
     for idx in reversed(range(n_2q_states)):
         
         curr_spin_config = vec_so_basis[idx, n_elec:]
@@ -697,27 +758,45 @@ def build_SO_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
 
 
 def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int, 
-                           ens_se_orbs, se_CMEs):
+                           se_energies, se_cmes):
+    """
+    Builds the second quantization Hamiltonian.  
+
+    Parameters:
+        n_elec: int
+            Number of electrons in the system.
+        spin_subspace: int 1d array/iterable, or string
+            Subspace corresponding to the chosen eigenvalue of the total
+            spin operator S. The string 'all' can be also supplied to 
+            include all S-space into the calculation.
+        n_se_orbs: int
+            Number of single-electron orbitals considered.
+        se_energies: 1d float array
+            Array of single-electron energies of the system 
+
+    Returns:
+        ---- : --
+            ---
+    """    
     
-    
-    ens_se_orbs = np.array(ens_se_orbs)
-    if len(ens_se_orbs) != n_se_orbs:
+    se_energies = np.array(se_energies)
+    if len(se_energies) != n_se_orbs:
         raise ValueError("The number of suppled single electron energies in"+
-                         f" ens_se_orbs: {len(ens_se_orbs)} must be equal to"+
+                         f" se_energies: {len(se_energies)} must be equal to"+
                          f" n_se_orbs: {n_se_orbs}.\n")
     
-    vec_so_basis, map_so_basis = build_SO_basis_vectors(n_elec, spin_subspace,
+    vec_so_basis, map_so_basis = bulid_so_basis(n_elec, spin_subspace,
                                                         n_se_orbs)
     
     # Get number of 2nd quantization spin-orbital basis states
     n_2q_states = vec_so_basis.shape[0]
 
-    # Initialize 2nd quantization hamiltonian
+    # Initialize 2nd quantization Hamiltonian
     T = np.zeros((n_2q_states,n_2q_states), dtype=complex)
     Hc = np.zeros((n_2q_states,n_2q_states), dtype=complex)
                 
-    # The second quantization hamiltonian has two terms: T + H_c.  T
-    # describes all the single particle energies in the hamiltonian while
+    # The second quantization Hamiltonian has two terms: T + H_c.  T
+    # describes all the single particle energies while
     # H_c describes all the direct and exchange electron interactions.
     
     # Let's first build the single-particle energy operator as it's the
@@ -728,19 +807,21 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
     # First get all of the energies
     
     for idx in range(n_2q_states):
-        curr_SE_orbs = vec_so_basis[idx, :n_elec]
-        T[idx, idx] = sum(ens_se_orbs[curr_SE_orbs])
+        curr_se_orbs = vec_so_basis[idx, :n_elec]
+        T[idx, idx] = sum(se_energies[curr_se_orbs])
     
     # Now that the T matrix is assembled, let's turn to the H_c term.
     for ndx in range(n_2q_states):
-        for mdx in range(ndx+1, n_2q_states):
-            Hc[ndx, mdx] = __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs,
+        for mdx in range(ndx + 1, n_2q_states):
+            Hc[ndx, mdx] = __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_cmes,
                                        vec_so_basis, map_so_basis)
             
     # Get lower triangular part of matrix
     Hc = Hc + Hc.conj().T
+
+    # Get diagonal elements
     for ndx in range(n_2q_states):
-        Hc[ndx, ndx] = __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs,
+        Hc[ndx, ndx] = __hc_helper(n_elec, ndx, ndx, n_se_orbs, se_cmes,
                                    vec_so_basis, map_so_basis)
     
     # Build the full Hamiltonian (and correct numerical errors by forcing
@@ -750,42 +831,67 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
 
     return H2ndQ
 
-def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis):
-    
-    # Get number of single electron spin orbital states
+def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes, 
+                            vec_so_basis, map_so_basis):
+    """
+    Builds the [ndx, mdx] element of the interaction Hamiltonian Hc.  
+
+    Parameters:
+        n_elec: int
+            Number of electrons in the system.
+        ndx: int
+            Row index of the interaction part of the Hamiltonian
+        mdx: int
+            Column index of the interaction part of the Hamiltonian
+        n_se_orbs: int
+            Number of single-electron orbitals considered.
+        se_cmes: 2d float array
+            Array of Coulomb interaction matrix elements in the harmonic 
+            orbital basis. 
+
+    Returns:
+        ---- : --
+            ---
+    """    
+    # Get number of single-electron spin-orbital states
     n_se_so = map_so_basis.shape[0]
 
     hc_elem = 0
     
-    # This function simply takes an input ket and applies the anhilation
+    # This function simply takes an input ket and applies the annihilation
     # operator corresponding to the n = [ind] spin-orbit state
-    def __anhilation_helper(state, idx, map_so_basis):
+    def __annihilation_helper(state, idx, map_so_basis):
         '''
-        This function simply takes an input ket and applies the anhilation
+        This function takes an input ket and applies the annihilation
         operator corresponding to the n = [idx] spin-orbit state
 
         Parameters
         ----------
-        state : TYPE
-            DESCRIPTION.
-        idx : TYPE
-            DESCRIPTION.
-        map_so_basis : TYPE
-            DESCRIPTION.
+        state : float 1D array
+            Input ket vector.
+        idx : int
+            Index of the spin-orbit state to annihilate. See build_so_basis 
+            function for the explanation of the index encoding rules. 
+        map_so_basis: int 2D array
+            Rows represent encodings of the spin-orbit states for the single
+            electron spin and orbital states. Orbital states are in the 
+            1st column, spin states are in the 2nd column. Ordered by spin,
+            then by orbital.
 
         Returns
         -------
-        None.
-
+        state: float 1D array
+            New spin-orbit many electron state.   
         '''
 
-        anhil_idx = map_so_basis[idx, :]
+        annih_idx = map_so_basis[idx, :]
     
         for jdx in range(n_elec):
-            # Check if the ith anhilation operator destroys any of the
+            # Check if the ith annihilation operator destroys any of the
             # states in the ket
             
-            if state[jdx] == anhil_idx[0] and state[jdx + n_elec] == anhil_idx[1]:
+            if state[jdx] == annih_idx[0] \
+                and state[jdx + n_elec] == annih_idx[1]:
                 # Edit the orbital and spin state so we know it was destroyed
                 state[jdx], state[jdx + n_elec] = -1, -1
                 
@@ -796,32 +902,35 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
   
     def __phase_helper(state):
         '''
-        This function takes an inputted ket that has been modified by annhilation
-        operators and calculates the phase term caused by swapping of the
-        fermionic operators during the annhilation applications.
+        This function takes an inputted ket that has been modified 
+        by annhilation operators (-1's introduced at the places where the
+        electron was annihilated) and calculates the phase term
+        caused by swapping of the fermionic operators
+        during the annihilation applications.
 
         Parameters
         ----------
-        state : TYPE
-            DESCRIPTION.
+        state : float 1D array
+            Input ket vector.
 
         Returns
         -------
-        None.
+        phase : float
+            Value of accummulated phase 
 
         '''
 
-        # First find all the -1 indicies in the state vector as these
-        # correspond to anhilated electrons
-        anhil_idxs = np.where(state == -1)[0]
+        # First find all the -1 indices in the state vector as these
+        # correspond to annihilated electrons
+        annih_ids = np.where(state == -1)[0]
         
         # Truncate the second half of these indices which correspond to spin
         # and not orbital.
-        anhil_idxs = anhil_idxs[:(len(anhil_idxs) // 2)]
+        annih_ids = annih_ids[:(len(annih_ids) // 2)]
         
         # The remaining indices correspond to exactly how many swaps were
-        # in order to apply each anhilation operator, so calculate the phase
-        phase = (-1)**sum(anhil_idxs)
+        # in order to apply each annihilation operator, so calculate the phase
+        phase = (-1)**sum(annih_ids)
         
         return phase
 
@@ -833,8 +942,8 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
         # Initialize the bra state <ij|
         bra_orig = vec_so_basis[ndx, :]
         
-        # jth anhilation operator
-        bra_orig = __anhilation_helper(bra_orig, jdx, map_so_basis)
+        # jth annihilation operator
+        bra_orig = __annihilation_helper(bra_orig, jdx, map_so_basis)
         
         # Used for the final two checks in the innermost loop (ldx)
         j_orb = map_so_basis[jdx, 0]
@@ -844,24 +953,24 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
             # Refresh bra state for new loop
             bra = bra_orig
             
-            # ith anhilation operator
-            bra = __anhilation_helper(bra, idx, map_so_basis)
+            # ith annihilation operator
+            bra = __annihilation_helper(bra, idx, map_so_basis)
 
             # Now that we have the modified bra state, check that both
-            # anhilation operators acted on it. If they both did not, then
-            # they can be commuted so the one that did not acts on the
+            # annihilation operators acted on it. If they both did not, then
+            # they can be commuted so the one that did not act on the
             # vacuum state giving c|0> = 0.
-            n_anhil_applied = sum(bra == -1)
+            n_annih_applied = sum(bra == -1)
             
             # Divide by 2 because we modify both the orbital and spin part of 
             # the bra state
-            if n_anhil_applied // 2 != 2:
+            if n_annih_applied // 2 != 2:
                 continue
             
-            # Now calculate the phase from applying these anhilation operators
+            # Now calculate the phase from applying these annihilation operators
             bra_phase = __phase_helper(bra)
             
-            # Remove all anhilated electrons from our many-electron bra
+            # Remove all annihilated electrons from our many-electron bra
             bra_trim = bra[bra != -1]
             
             # Used for the final two checks in the innermost loop (ldx)
@@ -873,8 +982,8 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
                 # Initialize the ket state |kl>
                 ket_orig = vec_so_basis[mdx, :]
                 
-                # kth anhilation operator
-                ket = __anhilation_helper(ket_orig, kdx, map_so_basis)
+                # kth annihilation operator
+                ket = __annihilation_helper(ket_orig, kdx, map_so_basis)
                 
                 # Used for the final two checks in the innermost loop (ldx)
                 k_orb = map_so_basis[kdx, 0]
@@ -884,29 +993,31 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
                     # Refresh ket state for new loop
                     ket = ket_orig
                     
-                    # Apply anhilation operators to KET state
-                    # lth anhilation operator
-                    ket = __anhilation_helper(ket, ldx, map_so_basis)
+                    # Apply annihilation operators to ket state
+                    # lth annihilation operator
+                    ket = __annihilation_helper(ket, ldx, map_so_basis)
                     
                     # Now that we have the modified ket state, check that both
-                    # anhilation operators acted on it.  If they both did not, then
+                    # annihilation operators acted on it.  If they both did not, then
                     # they can be commuted so the one that did not acts on the
                     # vacuum state giving c|0> = 0.
-                    n_anhil_applied = sum(ket == -1)
+                    n_annih_applied = sum(ket == -1)
                     
                     # Divide by 2 because we modify both the orbital and spin 
                     # part of the ket state
-                    if n_anhil_applied // 2 != 2:
+                    if n_annih_applied // 2 != 2:
                         continue
                     
-                    # Now calculate the phase from applying these anhilation
+                    # Now calculate the phase from applying these annihilation
                     # operators
                     ket_phase = __phase_helper(ket)
                     
-                    # Remove all anhilated electrons from our many-electron ket
+                    # Remove all annihilated electrons from our
+                    # many-electron ket
                     ket_trim = ket[ket != -1]
                     
-                    # SANITY CHECK: there should be nElec - 2 electrons remaining.
+                    # SANITY CHECK: there should be nElec - 2 
+                    # electrons remaining.
                     if (len(bra_trim) // 2 != (n_elec - 2) or
                             len(bra_trim) != len(ket_trim)):
                         raise ValueError('Incorrect number of electrons left '+
@@ -916,7 +1027,7 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
                     # Check that all the remaining electrons are the same for
                     # the bra and ket. Otherwise, the inner product is 0.
                     # Because of our ordering convention, after we removed the
-                    # anhilated states, the arrays should match exactly.
+                    # annihilated states, the arrays should match exactly.
                     # No need to worry about permutated vectors.
                     if not np.array_equal(bra_trim, ket_trim):
                         continue
@@ -931,9 +1042,9 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
                         row_idx = int(j_orb * n_se_orbs + i_orb)
                         col_idx = int(k_orb * n_se_orbs + l_orb)
                                                 
-                        curr_CME = se_CMEs[row_idx, col_idx]
+                        curr_cme = se_cmes[row_idx, col_idx]
                         
-                        hc_elem += curr_CME * bra_phase * ket_phase
+                        hc_elem += curr_cme * bra_phase * ket_phase
 
                     # Check that the spins for state pairs (i,k) and (j,l) 
                     # match
@@ -941,9 +1052,9 @@ def __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_CMEs, vec_so_basis, map_so_basis
                         row_idx = int(j_orb * n_se_orbs + i_orb)
                         col_idx = int(l_orb * n_se_orbs + k_orb)
                         
-                        curr_CME = se_CMEs[row_idx, col_idx]
+                        curr_cme = se_cmes[row_idx, col_idx]
                         
-                        hc_elem -= curr_CME * bra_phase * ket_phase
+                        hc_elem -= curr_cme * bra_phase * ket_phase
                 
     return hc_elem
     
