@@ -226,10 +226,11 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             new_x = x[x_idx_mask]
             new_y = y[y_idx_mask]
             
+
             # Get new coordinate points by rounding number of coordinates 
             # points to a power of 2 for both x and y (for faster ffts).
-            new_x_len = 2**(len(new_x) - 1).bit_length() if new_x else 1
-            new_y_len = 2**(len(new_y) - 1).bit_length() if new_y else 1
+            new_x_len = 2**(len(new_x) - 1).bit_length() if new_x.any() else 1
+            new_y_len = 2**(len(new_y) - 1).bit_length() if new_y.any() else 1
             new_x = np.linspace(new_x.min(), new_x.max(), new_x_len)
             new_y = np.linspace(new_y.min(), new_y.max(), new_y_len)
             

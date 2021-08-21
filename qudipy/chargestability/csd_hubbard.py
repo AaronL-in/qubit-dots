@@ -23,7 +23,7 @@ class HubbardCSD:
     with analytic potentials.
     '''
     def __init__(self, n_sites, n_e, cap_matrix, h_mu=False, h_t=False,
-                 h_u=False, param_dict=None):
+                 h_u=False, **param_dict):
         '''
 
         Parameters

@@ -137,7 +137,7 @@ class PotentialInterpolator:
         # Get number of control vector inputs
         try:
             n_inputs = len(volt_vec[0])
-        except IndexError:
+        except TypeError:
             n_inputs = 1 
             
         # Get a 1D array of all coordinate points we need to query the
