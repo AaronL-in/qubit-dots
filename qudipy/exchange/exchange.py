@@ -517,8 +517,8 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
 def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
                            rydberg=False, save_dir=os.getcwd()):
     '''
-    Calculates the Coulomb interaction matrix in the basis of harmonic orbitals
-    centered at the origin.
+    Calculates the Coulomb Matrix Elements for a harmonic orbital basis. CMEs
+    are calculated assuming omega = 1 and then appropriately scaled.
 
     Parameters
     ----------
@@ -611,7 +611,8 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
         k = 1
     # Otherwise we have SI units and need to scale CMEs by k
     else:
-        k = consts.e**2 / (4 * consts.pi * consts.eps)
+        k = consts.e**2 / (4 * consts.pi * consts.eps) *\
+            np.sqrt(consts.me / consts.hbar)
         
     # Scale by k
     CMEs *= k
@@ -624,35 +625,45 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
     return CMEs
     
 
-def bulid_so_basis(n_elec: int, spin_subspace, n_se_orbs: int):
-    """
-    Creates mapping between composite spin-orbit states of many-electron
-    system wit the explicit spin and orbital single-electron states.  
+def build_so_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
+    '''
+    Build the many electron spin orbit basis vectors. These can be used to map
+    the output of the many electron eigenvectors to the corresponding many
+    electron spatial wavefunctions and spin states.
 
-    Parameters:
-        n_elec: int
-            Number of electrons in the system.
-        spin_subspace: int 1d array/iterable, or string
-            Subspace corresponding to the chosen eigenvalue of the total
-            spin operator Sz. The string 'all' can be also supplied to 
-            include all Sz-space into the calculation.
-        n_se_orbs: int
-            Number of single-electron orbitals considered. 
+    Parameters
+    ----------
+    n_elec : int
+        Number of electrons.
+    spin_subspace : int array
+        Specifies which sping subspaces to use when constructing the 2nd 
+        quantization Hamiltonian. As an example, for a 3 electron system, there
+        are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use only 
+        S_z > 0, set spin_subspace=[2,3] corresponding to the 3rd and 4th 
+        elemtns of the array. To use all spin subspaces, set spin_subspace='all'.
+        The default is 'all'.
+    n_se_orbs : int
+        Number of single electron orbitals to use when constructing the spin
+        orbit subspace.
 
-    Returns:
-        map_so_basis: int 2D array
-            Rows represent encodings of the spin-orbit states for the single
-            electron spin and orbital states. Orbital states are in the 
-            1st column, spin states are in the 2nd column. Ordered by spin,
-            then by orbital
-        vec_so_basis: float 2D array
-            Encodings of the many-electron spin-orbit states that correspond
-            to the specified spin_subspace.
-            Each of the rows contains orbital (1 half) and spin (2 half)
-            configuration of each electron in the system.         
-        
-    """
-    
+    Returns
+    -------
+    vec_so_basis : int 2D array
+        Compilation of all many electron spin orbit basis states. First index
+        corresponds to the ith state and the other indices are for the individual
+        electron states for that given many electron state. Format is as follows:
+        The first K = n_elec indicies correspond to the orbital state and the last
+        K = n_elec indicies correspond to the spin state.
+        As an explicit example for a K = 3 case, consider the multi-electron 
+        spin-orbit state [4,2,3,0,0,1] which means:
+        1st electron is in the 4th orbital state (idx=0) with spin down (idx=3)
+        2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
+        3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
+    map_so_basis : int 2D array
+        A 2D array which maps the ith single electron spin orbit state (first
+        index) to the corresponding single electron orbital and spin state.
+
+    '''
     # Parse input, and convert to numpy array
     if spin_subspace == 'all':
         spin_subspace = np.array(range(n_elec+1))
@@ -759,25 +770,32 @@ def bulid_so_basis(n_elec: int, spin_subspace, n_se_orbs: int):
 
 def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int, 
                            se_energies, se_cmes):
-    """
+    '''
     Builds the second quantization Hamiltonian.  
 
     Parameters:
         n_elec: int
             Number of electrons in the system.
         spin_subspace: int 1d array/iterable, or string
-            Subspace corresponding to the chosen eigenvalue of the total
-            spin operator S. The string 'all' can be also supplied to 
-            include all S-space into the calculation.
+        Specifies which sping subspaces to use when constructing the 2nd 
+        quantization Hamiltonian. As an example, for a 3 electron system, there
+        are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use only 
+        S_z > 0, set spin_subspace = [2,3] corresponding to the 3rd and 4th 
+        elemtns of the array. To use all spin subspaces, set spin_subspace='all'.
+        The default is 'all'.
         n_se_orbs: int
-            Number of single-electron orbitals considered.
-        se_energies: 1d float array
-            Array of single-electron energies of the system 
+            Number of single-electron orbitals basis states..
+        se_energies: float 1d  array
+            Corresponding single electron orbital basis state eigenenergies.
+        se_cmes : double 2D array
+            Coulomb matrix elements in the single electron basis.
 
-    Returns:
-        ---- : --
-            ---
-    """    
+    Returns
+    -------
+    H2ndQ : double 2D array
+        Second quantization hamiltonian.
+
+    '''
     
     se_energies = np.array(se_energies)
     if len(se_energies) != n_se_orbs:
@@ -785,7 +803,7 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
                          f" se_energies: {len(se_energies)} must be equal to"+
                          f" n_se_orbs: {n_se_orbs}.\n")
     
-    vec_so_basis, map_so_basis = bulid_so_basis(n_elec, spin_subspace,
+    vec_so_basis, map_so_basis = build_so_basis_vectors(n_elec, spin_subspace,
                                                         n_se_orbs)
     
     # Get number of 2nd quantization spin-orbital basis states
@@ -833,27 +851,43 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
 
 def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes, 
                             vec_so_basis, map_so_basis):
-    """
-    Builds the [ndx, mdx] element of the interaction Hamiltonian Hc.  
+    '''
+    Helper function for constructing H_c term of second quantization hamiltonian
 
-    Parameters:
-        n_elec: int
-            Number of electrons in the system.
-        ndx: int
-            Row index of the interaction part of the Hamiltonian
-        mdx: int
-            Column index of the interaction part of the Hamiltonian
-        n_se_orbs: int
-            Number of single-electron orbitals considered.
-        se_cmes: 2d float array
-            Array of Coulomb interaction matrix elements in the harmonic 
-            orbital basis. 
+    Parameters
+    ----------
+    n_elec : int
+        Number of electrons in the system.
+    ndx : int
+        Current many electron spin orbit basis state index for 1st electron.
+    mdx : int
+        Current many electron spin orbit basis state index for 2nd electron.
+    n_se_orbs : int
+        Number of single electron orbital basis states.
+    se_cmes : double 2D array
+        Coulomb Matrix Elements in the single electron basis.
+    vec_so_basis : int 2D array
+        Compilation of all many electron spin orbit basis states. First index
+        corresponds to the ith state and the other indices are for the individual
+        electron states for that given many electron state. Format is as follows:
+        The first K = n_elec indicies correspond to the orbital state and the last
+        K = n_elec indicies correspond to the spin state.
+        As an explicit example for a K = 3 case, consider the multi-electron 
+        spin-orbit state [4,2,3,0,0,1] which means:
+        1st electron is in the 4th orbital state (idx=0) with spin down (idx=3)
+        2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
+        3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
+    map_so_basis : int 2D array
+        A 2D array which maps the ith single electron spin orbit state (first
+        index) to the corresponding single electron orbital and spin state.
 
-    Returns:
-        ---- : --
-            ---
-    """    
-    # Get number of single-electron spin-orbital states
+    Returns
+    -------
+    hc_elem : double
+        Calculated Coulomb Matrix Element <n|V|m>.
+
+    '''
+    # Get number of single electron spin orbital states
     n_se_so = map_so_basis.shape[0]
 
     hc_elem = 0
@@ -868,7 +902,7 @@ def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes,
         Parameters
         ----------
         state : float 1D array
-            Input ket vector.
+            Inputted ket vector state before annihilation.
         idx : int
             Index of the spin-orbit state to annihilate. See build_so_basis 
             function for the explanation of the index encoding rules. 
@@ -910,13 +944,13 @@ def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes,
 
         Parameters
         ----------
-        state : float 1D array
-            Input ket vector.
+        state : 1D array
+            State of interest.
 
         Returns
         -------
         phase : float
-            Value of accummulated phase 
+            Accumulated phase from repeated annihilation operations.
 
         '''
 
