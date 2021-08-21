@@ -75,7 +75,253 @@ def inner_prod(gparams, wf1, wf2):
             
     return inn_prod
 
-def partial_trace(rho, dim, sys):
+def expectation_value(gparams, wf, operator):
+    '''
+    Evaluates the expectation value for an observable of a wavefunction.
+
+    Parameters
+    ----------
+    gparams : GridParameters class
+        Contains grid and potential information.
+    wf : complex array
+        Wavefunction for the expectation value. If grid is 2D, then the 
+        array should be in meshgrid format.
+    operator : complex array
+        Matrix representation of the operator for the expectation value.
+        
+    Keyword Arguments
+    ----------------
+    None.
+
+    Returns
+    -------
+    exp_val : complex float
+        The expectation value for the observable of a wavefunction.
+
+    '''
+    
+    if gparams.grid_type == '1D':
+        exp_val = np.trapz(np.multiply(wf.conj(), np.matmul(operator, wf)), 
+                           x=gparams.x)
+    elif gparams.grid_type == '2D':
+        exp_val = np.trapz(np.trapz(np.multiply(wf.conj(), np.matmul(operator, wf)), 
+                           x=gparams.x, axis=1), gparams.y)
+            
+    return exp_val
+
+def matrix_element(gparams, wf1, wf2, operator):
+    '''
+    Evaluates the matrix element between two complex wavefunctions.
+
+    Parameters
+    ----------
+    gparams : GridParameters class
+        Contains grid and potential information.
+    wf1 : complex array
+        'Bra' wavefunction for the matrix element. If grid is 2D, then the 
+        array should be in meshgrid format.
+    wf2 : complex array
+        'Bra' wavefunction for the matrix element. If grid is 2D, then the 
+        array should be in meshgrid format.
+    operator : complex array
+        Matrix representation of the operator for the matrix element.
+        
+    Keyword Arguments
+    ----------------
+    None.
+
+    Returns
+    -------
+    mtx_elem : complex float
+        The matrix element between two complex wavefunctions.
+
+    '''
+    
+    if gparams.grid_type == '1D':
+        mtx_elem = np.trapz(np.multiply(wf1.conj(), np.matmul(operator, wf2)), 
+                           x=gparams.x)
+    elif gparams.grid_type == '2D':
+        mtx_elem = np.trapz(np.trapz(np.multiply(wf1.conj(), np.matmul(operator, wf2)), 
+                           x=gparams.x, axis=1), gparams.y)
+            
+    return mtx_elem
+
+def project_up(rho, elem):
+    """
+    Projects the system density matrix onto the spin-up state of 
+    the specified electron(s) (without renormalizing it)
+    
+    Parameters
+    ----------
+    rho : 2D complex array
+        Matrix of the dimensions 2**N x 2**N (density matrix in our case).
+    elem : int / iterable of ints
+        Number(s) of the electron(s) whose state(s) is to project the system 
+        density matrix on.
+        
+    Keyword Arguments
+    ----------------
+    None.
+    
+    Returns
+    -------
+    projected_rho : complex 2D array
+        new density matrix (non-renormalized) of the dimensions 
+        2**m x 2**m, where m = N - dim(elem) 
+
+    """
+    dim = rho.shape[0]    #dimension of the matrix
+    N = int(math.log2(rho.shape[0]))   
+            #number of qubits encoded by density matrix
+    
+    if isinstance(elem, int):
+        
+        projected_rho=[]
+            #the idea behind bitwise shifts is that every matrix in tensor product
+            #doubles the dimension of the resulting matrix, i. e. adds one binary 
+            #digit to the number. It follows from the definition of Kronecker
+            #product that the most significant bit defines the element of the
+            #leftmost matrix in Kronecker product, and vice versa
+        for i in range(0, dim):
+            if (i >> (N - elem)) % 2 == 0:
+                var = []
+                for j in range(0, dim):
+                    if (j >> (N - elem)) % 2 == 0:
+                        var.append(rho[i][j])
+                projected_rho.append(var)
+            else:
+                continue
+    
+        return  np.array(projected_rho)
+    
+    if isinstance(elem, (tuple, list, set) ):
+        projected_rho = rho.copy()
+        elems_sorted = sorted(elem, reverse=True)
+            #iterable sorted in the reversed order; necessary for the correct 
+            # consecutive application of the project_up operations 
+        for el in elems_sorted:
+            projected_rho = project_up(projected_rho, el)
+        return projected_rho
+    
+    raise ValueError("Qubits that are traced out should be defined by a  \
+                        single int number or an iterable of ints. Try again")
+
+def project_down(rho, elem):
+    """
+    Projects the system density matrix onto the spin-down state 
+    of the specified electron(s) (without renormalizing it).
+    
+    Parameters
+    ----------
+    rho : 2D array
+        Matrix of the dimensions 2**N x 2**N (density matrix in our case).
+    elem : int / iterable of ints
+        Number(s) of the electron(s) whose state(s) is to project the system 
+        density matrix on.
+        
+    Keyword Arguments
+    ----------------
+    None.
+    
+    Returns
+    -------
+    projected_rho : complex 2D array
+        new density matrix (non-renormalized) of the dimensions 
+        2**m x 2**m, where m = N - dim(elem) 
+    """
+
+    dim = rho.shape[0]    #dimension of the matrix
+    N = int(math.log2(rho.shape[0]))   
+            #number of qubits encoded by density matrix
+    
+    if isinstance(elem, int):
+        
+        projected_rho = []
+            #the idea behind bitwise shifts is that every matrix in tensor product
+            #doubles the dimension of the resulting matrix, i. e. adds one binary 
+            #digit to the number. It follows from the definition of Kronecker
+            #product that the most significant bit defines the element of the
+            #leftmost matrix in Kronecker product, and vice versa
+        for i in range(0, dim):
+            if (i >> (N - elem))%2 == 1:
+                var = []
+                for j in range(0, dim):
+                    if (j >> (N - elem)) % 2 == 1:
+                        var.append(rho[i][j])
+                projected_rho.append(var)
+            else:
+                continue
+    
+        return np.array(projected_rho)
+    
+    if isinstance(elem, (tuple,list,set)):
+        projected_rho = rho.copy()
+        elems_sorted = sorted(elem, reverse=True)
+            #iterable sorted in the reversed order; necessary for the correct 
+            #consecutive application of the project_down operations 
+        for el in elems_sorted:
+            projected_rho = project_down(projected_rho, el)
+        return projected_rho
+
+    raise ValueError("Qubits that are traced out should be defined by a  \
+                        single int number or an iterable of ints. Try again")
+
+
+def partial_trace(rho, elem):
+    """
+    Finds partial trace with respect to the specified qubit(s)
+    
+    Parameters
+    ----------
+    rho : 2D array
+        matrix of the dimensions 2**N x 2**N (density matrix in our case)
+    elem : int / iterable of ints
+        number(s) of the electron(s) whose state(s) is/are averaged out
+
+    Returns
+    -------
+    traced_rho: complex 2D array
+        new density matrix of the dimensions 2**m x 2**m, m = N - dim(elem) 
+
+    """
+    if isinstance(elem, int):
+        return project_up(rho, elem) + project_down(rho, elem)
+    
+    if isinstance(elem, (tuple, set, list)):
+        traced_rho = rho.copy()
+        elems_sorted = sorted(elem, reverse=True)
+            #iterable sorted in the reversed order; necessary for the correct 
+            # consecutive application of the project_up operations 
+        for el in elems_sorted:
+            traced_rho = partial_trace(traced_rho, el)
+        return traced_rho
+    
+    #error with the input 
+    raise ValueError("Qubits that are traced out should be defined by a  \
+                        single int number or an iterable of ints. Try again")
+
+def matrix_sqrt(A):
+    """
+    Calculates a square root of the specified matrix.
+
+    Parameters
+    ----------
+    A : numpy array
+        matrix to calculate the square root of
+
+    Returns
+    -------
+    sqrt_A: complex 2D array
+        square root of the matrix
+
+    """
+    w,v = la.eig(A)
+    sqrt_A = v @ np.diag(np.sqrt((1 + 0j)*w)) @ la.inv(v)
+    return sqrt_A
+    
+
+
+def partial_trace_general(rho, dim, traced_subsystem):
     '''
     This code takes the partial trace of a density matrix.  It is adapted from
     the open-source TrX file written by Toby Cubitt for MATLAB.

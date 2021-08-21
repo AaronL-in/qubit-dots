@@ -44,7 +44,7 @@ class PotentialInterpolator:
             The default is a Constants object assuming vacuum as the material
             system.
         y_slice : float, optional
-            Used to create an interpolator of only 1D poetentials. Specify a 
+            Used to create an interpolator of only 1D potentials. Specify a 
             slice along the y-axis at which to take the 1D potential when 
             constructing the interpolator. Units should be specified in [m]. 
             The default is None.
@@ -123,9 +123,8 @@ class PotentialInterpolator:
                                  ' correct number of elements.\n' + 
                                  f'Expected {exp_num} or {exp_num-2} number' +
                                  f' of elements, got {len(volt_vec)} instead.')
-            else:
-                volt_vec = [volt_vec[idx] for idx in range(len(volt_vec)) if
-                            idx not in self.single_dims]
+            volt_vec = [volt_vec[idx] for idx in range(len(volt_vec)) if
+                        idx not in self.single_dims]
         
         # Check if values are out of min/max range
         for idx in range(self.n_voltage_ctrls):
@@ -138,7 +137,7 @@ class PotentialInterpolator:
         # Get number of control vector inputs
         try:
             n_inputs = len(volt_vec[0])
-        except:
+        except IndexError:
             n_inputs = 1 
             
         # Get a 1D array of all coordinate points we need to query the
@@ -477,8 +476,7 @@ class PotentialInterpolator:
         # If swept_ctrl is an integer, then no need to find the corresponding
         # index. If swept_ctrl is a string, we need to check that it is one of
         # the control names and then find the corresponding index.
-        if not isinstance(swept_ctrl,int):
-            
+        if not isinstance(swept_ctrl, int):
             try:
                 # Get corresponding control index
                 ctrl_idx = self.ctrl_names.index(swept_ctrl)
