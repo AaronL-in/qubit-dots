@@ -129,8 +129,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     -----------------
     f_type : string, optional
         Type of file to load (either potential or electric field). Acceptable 
-        arguments include ['pot','potential','Uxy','electric','field','Ez'] 
-        where case is not relevant.
+        case insensitive arguments include the strings 
+        ['pot','potential','uxy','electric','field','ez'].
         Default is potential. The default is 'pot'
     f_dir : string, optional
         Path to find files specified in f_list. The default is is the current
@@ -178,9 +178,9 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     for idx, curr_cvals in enumerate(product(*ctrl_vals)):
         # Now build up the current file name
         # First figure out type of file to load (electric or potential)
-        if f_type.lower() in ['pot', 'potential', 'Uxy']:
+        if f_type.lower() in ['pot', 'potential', 'uxy']:
             f_name = 'Uxy'
-        elif f_type.lower() in ['field', 'electric', 'Ez']:
+        elif f_type.lower() in ['field', 'electric', 'ez']:
             f_name = 'Ez'
             
         for name, val in zip(ctrl_names, curr_cvals):
