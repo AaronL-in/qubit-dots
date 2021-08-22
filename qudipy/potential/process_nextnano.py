@@ -17,11 +17,13 @@ def load_file(filename):
 
     Parameters
     ----------
-    filename: relative path for the files of interest
+    filename: String
+        relative path for the files of interest
     
     Returns
     -------
-    x,y,z: a single array ordered by the coordinates for potential.dat files or
+    x, y, z: Tuple of Lists
+        a single array ordered by the coordinates for potential.dat files or
         a tuple of 3 element, x, y, z for potential.coord files
     '''
 
@@ -84,33 +86,20 @@ def parse_ctrl_items(filename, ctrl_type):
 
     # parse string via _,\, /
     parsed_filename = re.split(r'[_/\\]',filename)
+    print(parsed_filename)
 
-    if ctrl_type.lower() in ['value','values']:
 
-        ctrl_vals = []
-        # search through list of strings for floats from the parsed file name
-        for i in parsed_filename:
-            try:
-                if float(i) < 100:
-                    ctrl_vals.append(float(i))
-            except ValueError:
-                pass
-
-        return ctrl_vals
-
-    elif ctrl_type.lower() in ['name','names']:
-
-        ctrl_names = []
-        # search through list of strings for control name attached to float 
-        # and seperated by an _
-        for idx, strg in enumerate(parsed_filename):
-            try:
-                if float(strg) < 100:
-                    ctrl_names.append(parsed_filename[idx-1])
-            except ValueError:
-                pass
-
-        return ctrl_names
+    ctrls = []
+    for idx, val in enumerate(parsed_filename):
+        try: 
+            if float(val) < 100:
+                if ctrl_type.lower() in ['value', 'values']:
+                    ctrls.append(float(val))
+                elif ctrl_type.lower() in ['name', 'names']:
+                    ctrls.append(parsed_filename[idx-1])
+        except:
+            pass
+    return ctrls
 
 def import_folder(folder, option=False):
     '''
@@ -118,7 +107,13 @@ def import_folder(folder, option=False):
     ----------
     folder: String
         Name of the folder where nextnano files are stored
+
     
+    Keyword Arguments
+    -----------------
+    option: bool
+        display command line output of the files being imported.
+
     Returns
     -------
     data: List
