@@ -227,11 +227,9 @@ def retrieve_ctrl_vals(nextnano_data):
             if nextnano_data[j][0][i] != nextnano_data[j+1][0][i]:
                 gate.append(nextnano_data[j+1][0][i])
 
-        # convert between set/list to remove any duplicate voltages per gate 
-        # and sort floats in ascending order for later interpolation
-        gate = list(set(gate))
-       
-        gate = hp.quick_sort(gate)
+        # convert between list/dict to remove any duplicate voltages per gate 
+        # while preserving original list order
+        gate = list(dict.fromkeys(gate).keys())
 
         voltages.append(gate)
     return voltages
