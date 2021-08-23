@@ -5,6 +5,7 @@ z-coordinate.
 @author: Kewei, Zach
 """
 
+import qudipy.utils.helpers as hp
 import numpy as np
 import pandas as pd
 import os
@@ -18,7 +19,7 @@ def load_file(filename):
     Parameters
     ----------
     filename: String
-        relative path for the files of interest
+        full path for the files of interest
     
     Returns
     -------
@@ -70,7 +71,7 @@ def parse_ctrl_items(filename, ctrl_type):
 
     Parameters
     ----------
-    filename: String which is the relative path to the filename and containts 
+    filename: String which is the full path to the filename and containts 
         control items (either name/value) information.
        
     Keyword Arguments
@@ -86,7 +87,6 @@ def parse_ctrl_items(filename, ctrl_type):
 
     # parse string via _,\, /
     parsed_filename = re.split(r'[_/\\]',filename)
-    print(parsed_filename)
 
 
     ctrls = []
@@ -171,7 +171,7 @@ def import_folder(folder, option=False):
 
     return data
 
-def retrieve_ctrl_vals(potential):
+def retrieve_ctrl_vals(nextnano_data):
     '''
     This function takes the list containing all data related to the nextnano 
     simulation runs which are to be used to create an interpolation object and
@@ -180,7 +180,7 @@ def retrieve_ctrl_vals(potential):
 
     Parameters
     ----------
-    potential: List 
+    nextnano_data: List 
         A list containing lists of voltages, potentials, and coordinates for 
         all simulation runs.
     
@@ -190,7 +190,7 @@ def retrieve_ctrl_vals(potential):
         List of all unique control values per control name for all simulation
         runs in the data directory.
 
-    ex:
+    Example :
 
         simulation runs:
         [0.1, 0.2, 0.2, 0.20, 0.1]
@@ -215,25 +215,27 @@ def retrieve_ctrl_vals(potential):
     voltages = []
 
     # loop over all gate voltages
-    for i in range(len(potential[0][0])):
+    for i in range(len(nextnano_data[0][0])):
 
         # initialize with voltage of the ith gate's first simulation run
-        gate = [potential[0][0][i]]
+        gate = [nextnano_data[0][0][i]]
 
         # loop over all simulation runs
-        for j in range(len(potential)-1):
+        for j in range(len(nextnano_data)-1):
 
             # store voltage if unique
-            if potential[j][0][i] != potential[j+1][0][i]:
-                gate.append(potential[j+1][0][i])
+            if nextnano_data[j][0][i] != nextnano_data[j+1][0][i]:
+                gate.append(nextnano_data[j+1][0][i])
 
         # convert between set/list to remove any duplicate voltages per gate 
         # and sort floats in ascending order for later interpolation
-        gate = set(gate)
-        gate = sorted(list(gate))
+        gate = list(set(gate))
+       
+        gate = hp.quick_sort(gate)
 
         voltages.append(gate)
     return voltages
+
 
 def reshape_potential(potential, x, y, z, slice, f_type):
     '''
@@ -251,10 +253,7 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     slice: Float
         z coordinate value to generate a 2D potential interpolation object 
-        for from all simulation runs.
-        
-    Keyword Arguments
-    ----------
+        from all simulation runs.
     f_type: List
         Field type identifier either ['field', 'electric', 'Ez']  or 
         ['pot', 'potential', 'Uxy' ]where case is not relevant.
@@ -266,8 +265,10 @@ def reshape_potential(potential, x, y, z, slice, f_type):
     
     '''
 
-    # find the index for the desired z-coordinate
-    index = z.index(slice)
+    # find the index for the closest coordinate which corresponds to the desired
+    # z-coordinate
+    index_tuple,_ = hp.find_nearest(z,slice)
+    index = index_tuple[0]
 
     # number of data points per axis provided from simulations 
     xsize = len(x)
@@ -276,10 +277,10 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     pot3DArray = np.reshape(potential,(xsize,ysize,zsize), order='F')
 
-    if f_type in ['field', 'electric', 'Ez']:
+    if f_type.lower() in ['field', 'electric', 'ez']:
         gradient = np.gradient(pot3DArray,x,y,z)[-1]
         field2DArray = gradient[:, :, index]
-    elif f_type in ['pot', 'potential', 'Uxy']:
+    elif f_type.lower() in ['pot', 'potential', 'uxy']:
         field2DArray = pot3DArray[:, :, index]
 
     return field2DArray
@@ -314,9 +315,9 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
     
     Returns
     -------
-    N/A: Text File
-        Potential or electric field XY-plane data is saved as a text file for
-        the z-coordinate along slice.
+    file_trig: integer
+        retunrs 0 if Potential or electric field XY-plane data is saved as a 
+        text file for the z-coordinate along slice. Otherwise, -1 is returned.
     '''
     
     potential_copy = potential.copy()
@@ -324,11 +325,13 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
     for i in potential_copy:
 
         if f_type.lower() in ['pot', 'potential', 'uxy']:
+            # capital U used here for writing nextnano data to text file
             f_name = 'Uxy'
             # slice an x-y plane of the potentials
             potential2D = reshape_potential(i[1], i[2][0], i[2][1], i[2][2],
                 slice, f_name)
         elif f_type.lower() in ['field', 'electric', 'ez']:
+            # capital E used here for writing nextnano data to text file
             f_name = 'Ez'
             potential2D = reshape_potential(i[1], i[2][0], i[2][1], i[2][2],
                 slice, f_name)
@@ -360,8 +363,15 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
         # join file name to directory path
         f_path = os.path.join(output_dir_path,f_name)
 
-        # save potential data for xy slice
-        np.savetxt(f_path, coords_and_pot, delimiter=',')
+       #try to save the data to a text file
+        try:
+            # save potential data for xy slice
+            np.savetxt(f_path, coords_and_pot, delimiter=',')
+            file_trig = 0
+        except:
+            file_trig = -1
+        
+    return file_trig
 
 def write_data(input_dir_path,output_dir_path,slice,f_type):
     '''
@@ -390,9 +400,9 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
     
     Returns
     -------
-    N/A: Text Files
-        Potential or electric field XY-plane data is saved as a text file for
-        the z-coordinate along slice.
+    file_trig: integer
+        retunrs 0 if Potential or electric field XY-plane data is saved as a 
+        text file for the z-coordinate along slice. Otherwise, -1 is returned.
     '''
     potential = import_folder(input_dir_path)
 
@@ -406,8 +416,17 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
             
     # output_dir_path = output_dir_path + '_slice_{}'.format(slice)
     output_dir_path = output_dir_path + '_for_slice_{:.3e}'.format(slice)
+        
     
     # write xy potential files
     for i in f_type:
-        print('Converting 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
-        xy_potential(potential, gates, slice, i,output_dir_path)
+        # try to write xy potential text files
+        try:
+            print('Converting 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
+            xy_potential(potential, gates, slice, i,output_dir_path)
+            file_trig = 0
+        except:
+            print('FAILED to convert 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
+            file_trig = -1
+
+    return file_trig
