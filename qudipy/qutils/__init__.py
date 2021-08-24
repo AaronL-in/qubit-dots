@@ -4,4 +4,4 @@ Quantum utility helper module
 
 from . import math
 from . import solvers
-from . import unitaries
+from . import matrices
