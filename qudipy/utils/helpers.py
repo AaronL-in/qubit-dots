@@ -6,7 +6,6 @@ General helper utilities
 
 import numpy as np
 import math
-from numpy.core.defchararray import zfill
 
 from numpy.testing._private.utils import tempdir
         

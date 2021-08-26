@@ -230,12 +230,6 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             
             # Get new coordinate points by rounding number of coordinates 
             # points to a power of 2 for both x and y (for faster ffts).
-
-            # TODO: understand why this causes "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"
-            # new_x_len = 2**(len(new_x) - 1).bit_length() if new_x else 1
-            # new_y_len = 2**(len(new_y) - 1).bit_length() if new_y else 1
-            
-            # However this works for Python 3.8.3 and conda 4.8.3
             new_x_len = 1 if len(new_x) == 0 else 2**(len(new_x) - 1).bit_length()
             new_y_len = 1 if len(new_y) == 0 else 2**(len(new_y) - 1).bit_length()
 

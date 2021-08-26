@@ -71,18 +71,17 @@ def parse_ctrl_items(filename, ctrl_type):
 
     Parameters
     ----------
-    filename: String which is the full path to the filename and containts 
-        control items (either name/value) information.
-       
-    Keyword Arguments
-    ----------
-    ctrl_type: Specifies what control item needs to be returned. Acceptable 
+    filename: String
+        Full path to the filename and containts control items 
+        (either name/value) information.
+    ctrl_type: String
+        Specifies what control item needs to be returned. Acceptable 
         arguments include ['value','values','name','names'] where case is 
         not relevant.
 
     Returns
     -------
-    ctrl_type: List of control items of the specific control type
+    ctrls: List of control items of the specific control type
     '''
 
     # parse string via _,\, /
@@ -237,7 +236,7 @@ def retrieve_ctrl_vals(nextnano_data):
 
 def reshape_potential(potential, x, y, z, slice, f_type):
     '''
-    This function reshapes the 1d array of potenttial data according to the
+    This function reshapes the 1d array of potential data according to the
     number of data points for the x,y, and z coordinates then retuns the field 
     along the XY-plane at the z-coordinate specified by slice.
 
