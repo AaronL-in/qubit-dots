@@ -168,8 +168,8 @@ def project_up(rho, elem):
         for el in elems_sorted:
             projected_rho = project_up(projected_rho, el)
         return projected_rho
-    
-    raise ValueError("Qubits that are traced out should be defined by a  \
+    else:
+        raise ValueError("Qubits that are traced out should be defined by a  \
                         single int number or an iterable of ints. Try again")
 
 def project_down(rho, elem):
@@ -232,7 +232,6 @@ def project_down(rho, elem):
     raise ValueError("Qubits that are traced out should be defined by a  \
                         single int number or an iterable of ints. Try again")
 
-
 def partial_trace(rho, elem):
     """
     Finds partial trace with respect to the specified qubit(s)
@@ -284,7 +283,7 @@ def matrix_sqrt(A):
     w,v = la.eig(A)
     sqrt_A = v @ np.diag(np.sqrt((1 + 0j)*w)) @ la.inv(v)
     return sqrt_A
-    
+
 
 
 def partial_trace_general(rho, dim, traced_subsystem):
