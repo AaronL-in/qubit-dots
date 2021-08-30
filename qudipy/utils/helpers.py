@@ -7,8 +7,6 @@ General helper utilities
 import numpy as np
 import math
 
-from numpy.testing._private.utils import tempdir
-        
 def find_nearest(array, value):
     '''
     Function to find the closest value to a number in a given array.
