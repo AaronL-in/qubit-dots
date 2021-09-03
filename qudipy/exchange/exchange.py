@@ -640,7 +640,7 @@ def build_so_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
         quantization Hamiltonian. As an example, for a 3 electron system, there
         are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use only 
         S_z > 0, set spin_subspace=[2,3] corresponding to the 3rd and 4th 
-        elemtns of the array. To use all spin subspaces, set spin_subspace='all'.
+        elements of the array. To use all spin subspaces, set spin_subspace='all'.
         The default is 'all'.
     n_se_orbs : int
         Number of single electron orbitals to use when constructing the spin
@@ -781,7 +781,7 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
         quantization Hamiltonian. As an example, for a 3 electron system, there
         are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use only 
         S_z > 0, set spin_subspace = [2,3] corresponding to the 3rd and 4th 
-        elemtns of the array. To use all spin subspaces, set spin_subspace='all'.
+        elements of the array. To use all spin subspaces, set spin_subspace='all'.
         The default is 'all'.
         n_se_orbs: int
             Number of single-electron orbitals basis states..

@@ -3,7 +3,6 @@ QuDiPy tutorial data/
 animation_plot/
 testing.py
 .vscode/
-tutorials/QuDiPy tutorial data
 *.pyc
 __pycache__/
 *.csv
