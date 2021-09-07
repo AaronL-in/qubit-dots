@@ -12,6 +12,7 @@ from scipy import sparse
 from scipy.sparse.linalg import eigsh 
 from scipy.linalg import eigh
 from qudipy.qutils.math import inner_prod
+import gc
 
 def build_1DSE_hamiltonian(consts, gparams):
     ''' 
@@ -337,7 +338,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     print('Transforming the CME library to single electron basis...\n')
     
     '''
-    MATLAB CODE TO EVENTUALLY IMPLEMENT
+    #TODO MATLAB CODE TO EVENTUALLY IMPLEMENT
     % Get a subset of the CMEs if the given nOrigins parameter in the
     % simparams file is less than what we've solved for in the library
     % already. Useful for checking convergence wrt number of orbitals. 
@@ -373,10 +374,18 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     print('Done!\n')
     print(f'Elapsed time is {build2nd_time} seconds.\n')
     
-    # Now diagonalize the many electron hamiltonian
+    # Now diagonalize the many electron Hamiltonian
     many_elec_ens, many_elec_vecs = eigh(ham_2q, subset_by_index=[0,n_sols-1])
     
     total_calc_time = time.time() - total_calc_time
+
+    # #clean up memory 
+    del ham_2q
+    del origin_hos
+    del a_mat
+    del full_trans_mat
+    del ho_cmes
+    gc.collect()
     
     # Display runtime information/etc.
     print(f'Total calculation time: {total_calc_time:.2f} sec, '+

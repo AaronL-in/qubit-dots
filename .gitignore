@@ -1,4 +1,4 @@
-QuDiPy tutorial data/
+*.npy
 *.ipynb_checkpoints
 animation_plot/
 testing.py

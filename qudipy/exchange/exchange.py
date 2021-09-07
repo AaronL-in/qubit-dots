@@ -281,7 +281,7 @@ def build_HO_basis(gparams, omega, nx, ny=0, ecc=1.0,
     return HOs
         
 
-# Also, this is a good example of a code that should be "generalized" to 
+#TODO Also, this is a good example of a code that should be "generalized" to 
 # handle a Hamiltonian class
 def basis_transform(gparams, new_basis, 
                               consts=qd.Constants('vacuum'), unitary=True,
@@ -515,7 +515,7 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
 
         
 def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
-                           rydberg=False, save_dir=os.getcwd()):
+                           rydberg=False, save_dir=None):
     '''
     Calculates the Coulomb Matrix Elements for a harmonic orbital basis. CMEs
     are calculated assuming omega = 1 and then appropriately scaled.
@@ -543,7 +543,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
         Useful for faster calculations. The naming 
         convention is as follows: "CME_{nx}x{xy}.npy". If None is specified, 
         array is not saved. 
-        The default is the current working directory.
+        The default is None.
 
     Returns
     -------
@@ -559,7 +559,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
     '''
     
     n_HOs = nx * ny
-    CMEs = np.zeros([n_HOs**2, n_HOs**2])
+    CMEs = np.zeros([n_HOs**2, n_HOs**2], dtype='float32')
     
     time.sleep(0.5) # Needed for tqdm to work properly if a print statement
                     # is executed right before running this function.
@@ -574,7 +574,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
         n_beta = beta // ny
         m_beta = beta % ny
         
-        for col_idx in range(row_idx,n_HOs**2):
+        for col_idx in range(n_HOs**2):
             # Parse the row index to extract gamma and delta and the subsequent
             # harmonic modes for x and y (n and m respectively)
             gamma = col_idx // n_HOs
@@ -598,7 +598,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
             # coincide with the calculated values, and can be only addressed
             # in the array
 
-            if (n_delta <= m_delta and  m_gamma <= m_delta
+            if (row_idx <= col_idx and n_delta <= m_delta and m_gamma <= m_delta
                     and n_gamma <= n_delta and m_beta <= m_gamma  
                     and n_beta <= n_gamma and m_alpha <= m_delta
                     and n_alpha <= n_delta):
@@ -609,6 +609,14 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
                                                        n_delta, m_delta,
                                                        rydberg)
             else:
+                # calculating the lower triangular part from the upper 
+                # triangular one in a memory-efficient way
+                if row_idx > col_idx:
+                    n_alpha, m_alpha, n_beta, m_beta,  \
+                        n_gamma, m_gamma, n_delta, m_delta =\
+                            n_gamma, m_gamma, n_delta, m_delta, \
+                                n_alpha, m_alpha, n_beta, m_beta
+                        
                 if n_delta > m_delta:       #change all m_i <-> n_i
                     n_alpha, m_alpha, n_beta, m_beta,  \
                         n_gamma, m_gamma, n_delta, m_delta = \
@@ -643,11 +651,12 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
                                     + n_HOs * ( m_gamma + n_gamma * ny)
 
                 CMEs[row_idx, col_idx] = CMEs[symm_row_idx, symm_col_idx]
+
             
     # We only found the upper triangular part of the matrix so find the
     # lower triangular part here
-    temp = CMEs - np.diag(np.diag(CMEs))
-    CMEs = CMEs + temp.T # CME is real so no need for .conj()
+    #temp = CMEs - np.diag(np.diag(CMEs))
+    #CMEs = CMEs + temp.T # CME is real so no need for .conj()
         
     # Now scale CME matrix if appropriate
     # If effective Rydberg units, then no need to scale CME   
@@ -880,16 +889,17 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
             
     # Get lower triangular part of matrix
     Hc = Hc + Hc.conj().T
+    print('1. The nondiagonal part is built')
 
     # Get diagonal elements
     for ndx in range(n_2q_states):
         Hc[ndx, ndx] = __hc_helper(n_elec, ndx, ndx, n_se_orbs, se_cmes,
                                    vec_so_basis, map_so_basis)
-    
+    print('2. The diagonal part is built')
     # Build the full Hamiltonian (and correct numerical errors by forcing
     # it to be symmetric)
     H2ndQ = T + Hc
-    H2ndQ = (H2ndQ + H2ndQ.conj().T) / 2
+    # H2ndQ = (H2ndQ + H2ndQ.conj().T) / 2
 
     return H2ndQ
 
