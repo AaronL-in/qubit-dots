@@ -566,23 +566,23 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
     for row_idx in tqdm(range(n_HOs**2)):
         # Parse the row index to extract alpha and beta and the subsequent
         # harmonic modes for x and y (n and m respectively)
-        alpha = math.floor(row_idx / n_HOs)
-        n_alpha = math.floor(alpha / ny)
+        alpha = row_idx // n_HOs
+        n_alpha = alpha // ny
         m_alpha = alpha % ny
         
         beta = row_idx % n_HOs
-        n_beta = math.floor(beta / ny)
+        n_beta = beta // ny
         m_beta = beta % ny
         
         for col_idx in range(row_idx,n_HOs**2):
             # Parse the row index to extract gamma and delta and the subsequent
             # harmonic modes for x and y (n and m respectively)
-            gamma = math.floor(col_idx / n_HOs)
-            n_gamma = math.floor(gamma / ny)
+            gamma = col_idx // n_HOs
+            n_gamma = gamma // ny
             m_gamma = gamma % ny
             
             delta = col_idx % n_HOs
-            n_delta = math.floor(delta / ny)
+            n_delta = delta // ny
             m_delta = delta % ny
             
             # Check if CME is 0. This will avoid the __calc function returning
@@ -593,12 +593,56 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
             if a % 2 != 0 or b % 2 != 0:
                 continue
             
-            # Get the corresponding CME
-            CMEs[row_idx, col_idx] = __calc_origin_cme(n_alpha, m_alpha, 
+            # because of the internal symmetries of the expression, we need to 
+            # calculate only some of the matrix elements. The rest of the values
+            # coincide with the calculated values, and can be only addressed
+            # in the array
+
+            if (n_delta <= m_delta and  m_gamma <= m_delta
+                    and n_gamma <= n_delta and m_beta <= m_gamma  
+                    and n_beta <= n_gamma and m_alpha <= m_delta
+                    and n_alpha <= n_delta):
+                     
+                CMEs[row_idx, col_idx] = __calc_origin_cme(n_alpha, m_alpha, 
                                                        n_beta, m_beta, 
                                                        n_gamma, m_gamma, 
                                                        n_delta, m_delta,
                                                        rydberg)
+            else:
+                if n_delta > m_delta:       #change all m_i <-> n_i
+                    n_alpha, m_alpha, n_beta, m_beta,  \
+                        n_gamma, m_gamma, n_delta, m_delta = \
+                            m_alpha, n_alpha, m_beta, n_beta, \
+                                m_gamma, n_gamma, m_delta, n_delta
+
+                if m_gamma > m_delta:
+                    m_alpha, m_beta, m_gamma, m_delta = \
+                        m_beta, m_alpha, m_delta, m_gamma
+
+                if n_gamma > n_delta: 
+                    n_alpha, n_beta, n_gamma, n_delta = \
+                        n_beta, n_alpha, n_delta, n_gamma
+
+                if m_beta > m_gamma:
+                    m_beta, m_gamma = m_gamma, m_beta
+
+                if n_beta > n_gamma:
+                    n_beta, n_gamma = n_gamma, n_beta
+
+                if m_alpha > m_delta:
+                    m_alpha, m_delta = m_delta, m_alpha
+
+                if n_alpha > n_delta:
+                    n_alpha, n_delta = n_delta, n_alpha
+
+                #indices of the symmetrical value in the matrix
+                symm_row_idx = m_beta + n_beta * ny \
+                                    + n_HOs * ( m_alpha + n_alpha * ny) 
+
+                symm_col_idx = m_delta + n_delta * ny \
+                                    + n_HOs * ( m_gamma + n_gamma * ny)
+
+                CMEs[row_idx, col_idx] = CMEs[symm_row_idx, symm_col_idx]
             
     # We only found the upper triangular part of the matrix so find the
     # lower triangular part here
