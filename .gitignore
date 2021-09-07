@@ -6,3 +6,5 @@ testing.py
 *.pyc
 __pycache__/
 *.csv
+tutorials/test_2.py
+.vscode/
