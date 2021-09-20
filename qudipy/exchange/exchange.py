@@ -7,13 +7,16 @@ Functions for calculating the many-electron schrodinger equation.
 import numpy as np
 import math
 import qudipy as qd
-import itertools
+from qudipy.utils import nchoosek
+from itertools import combinations
 from scipy.linalg import eigh
 from scipy.optimize import minimize
 from scipy.special import gamma, beta
+from scipy.sparse import csr_matrix, save_npz
 from tqdm import tqdm
 import time
 import os
+
 
 def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15, 
                       n_se_orbs=2, opt_tol=1E-7, consts=qd.Constants("vacuum")):
@@ -409,13 +412,14 @@ def basis_transform(gparams, new_basis,
         
         
 def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
-                         mg:int, nd:int, md:int, rydberg=False):
+                         mg:int, nd:int, md:int):
     '''
-    Helper function that calculates the matrix elements of Coulomb
-    interaction in the harmonic orbital basis. 
+    Helper function that calculates a matrix element of Coulomb
+    interaction in the harmonic orbital basis 
+    in the effective Rydberg units. 
     See formula 7 in the exchange interaction paper for definition: 
     https://www.overleaf.com/project/5e879589e03b60000124dce7
-    The function assumes SI units by default. 
+    (defined in SI units there)
 
     Parameters
     ----------
@@ -435,12 +439,6 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
         n_delta parameter of the harmonic ket-function 
     md : integer
         m_delta parameter of the harmonic ket-function 
-        
-    Keyword Arguments
-    -----------------
-    rydberg : bool
-        Specifies whether the result should be outputted in the effective
-        Rydberg units rather than SI. False by default.
 
     Returns
     -------
@@ -463,23 +461,23 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
         return(cme)
     
     for p1 in range(min(na,nd)+1):
-        coef1 = math.factorial(p1) * qd.utils.nchoosek(na,p1) * \
-            qd.utils.nchoosek(nd, p1)
+        coef1 = math.factorial(p1) * nchoosek(na,p1) * \
+            nchoosek(nd, p1)
         
         # Continue building a and p
         a1 = a0 - 2 * p1;
         pInd1 = pInd0 - 2 * p1
         
         for p2 in range(min(ma,md)+1):
-            coef2 = coef1 * math.factorial(p2) * qd.utils.nchoosek(ma,p2) * \
-                qd.utils.nchoosek(md,p2)
+            coef2 = coef1 * math.factorial(p2) * nchoosek(ma,p2) * \
+                nchoosek(md,p2)
             
             # Continue building p
             pInd2 = pInd1 - 2 * p2
             
             for p3 in range(min(nb,ng) + 1):
-                coef3 = coef2 * math.factorial(p3) * qd.utils.nchoosek(nb,p3) * \
-                    qd.utils.nchoosek(ng,p3)
+                coef3 = coef2 * math.factorial(p3) * nchoosek(nb,p3) * \
+                    nchoosek(ng,p3)
                 
                 # Finish building a and continue building and p
                 a = a1 - 2 * p3
@@ -487,7 +485,7 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
     
                 for p4 in range(min(mb,mg)+1):                 
                     coef4 = coef3 * math.factorial(p4) * \
-                            qd.utils.nchoosek(mb,p4) * qd.utils.nchoosek(mg,p4)
+                            nchoosek(mb,p4) * nchoosek(mg,p4)
                     
                     # Finish building p
                     p = (pInd3 - 2 * p4) / 2
@@ -508,14 +506,13 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
         math.factorial(mg) * math.factorial(nd) * math.factorial(md))
         
     # If effective Rydberg units, then multiply by 2
-    if rydberg:
-        cme = 2 * cme
+    return 2 * cme
         
     return cme 
 
         
 def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
-                           rydberg=False, save_dir=None):
+                           rydberg=True, save_dir=None):
     '''
     Calculates the Coulomb Matrix Elements for a harmonic orbital basis. CMEs
     are calculated assuming omega = 1 and then appropriately scaled.
@@ -536,8 +533,8 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
     consts : Constants object, optional
         Specify the material system constants. The default is "vacuum".
     rydberg : bool, optional
-        Specify whether to replace the default SI units with the Rydberg units. 
-        The default is False.
+        Specify whether to use the Rydberg units instead of SI units. 
+        The default is True.
     save_dir : string, optional
         Path to save the CME array as a numpy native binary .npy.
         Useful for faster calculations. The naming 
@@ -606,8 +603,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
                 CMEs[row_idx, col_idx] = __calc_origin_cme(n_alpha, m_alpha, 
                                                        n_beta, m_beta, 
                                                        n_gamma, m_gamma, 
-                                                       n_delta, m_delta,
-                                                       rydberg)
+                                                       n_delta, m_delta)
             else:
                 # calculating the lower triangular part from the upper 
                 # triangular one in a memory-efficient way
@@ -652,24 +648,34 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
 
                 CMEs[row_idx, col_idx] = CMEs[symm_row_idx, symm_col_idx]
 
-        
-    # Now scale CME matrix if appropriate
-    # If effective Rydberg units, then no need to scale CME   
-    if rydberg:
-        k = 1
-    # Otherwise we have SI units and need to scale CMEs by k
-    else:
-        k = consts.e**2 / (4 * consts.pi * consts.eps) *\
-            np.sqrt(consts.me / consts.hbar)
-        
-    # Scale by k
-    CMEs *= k
-    # Scale by omega if not the default value
-    CMEs = CMEs if omega == 1.0 else CMEs*math.sqrt(omega)
+            
+    # We only found the upper triangular part of the matrix so find the
+    # lower triangular part here
+    #temp = CMEs - np.diag(np.diag(CMEs))
     
+    # CMEs = CMEs + temp.T # CME is real so no need for .conj()
+
+    # We save only the matrix in Rydberg units for omega=1.0 by default.
+    # This makes the matrix universal for all material systems. 
+    # The appropriate scaling will be done elsewhere if the library is loaded
+
     if save_dir is not None: 
+        #testing sparse saving
+        #sparse_cmes = csr_matrix(CMEs)
+        #with open(save_dir+f'\\CMEs_{nx}x{ny}_sp.npy', 'wb') as f:
+        #    np.save(f, sparse_cmes)
         with open(save_dir+f'\\CMEs_{nx}x{ny}.npy', 'wb') as f:
             np.save(f, CMEs)
+
+    # If SI units, we need to scale CMEs by k * \sqrt(m_e/\hbar)
+    if not rydberg:
+        CMEs *= (consts.e**2  / (8 * consts.pi * consts.eps) *
+                                np.sqrt(consts.me / consts.hbar))
+                        
+    # Scale by omega if not the default value
+    CMEs = CMEs if omega == 1.0 else CMEs * math.sqrt(omega)
+    
+
     return CMEs
     
 
@@ -749,8 +755,8 @@ def build_so_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
 
     # Get all possible state configurations and total number (will be cut
     # down a bit later on)
-    state_configs = np.array(list(itertools.combinations(range(n_se_so), n_elec)))
-    n_2q_states = qd.utils.nchoosek(n_se_so, n_elec)
+    state_configs = np.array(list(combinations(range(n_se_so), n_elec)), dtype='int32')
+    n_2q_states = nchoosek(n_se_so, n_elec)
     
     # Now decode the states found using nchoosek into our format where the
     # first K = n_elec indicies correspond to the orbital state and the last
@@ -761,6 +767,7 @@ def build_so_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
     # 2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
     # 3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
     vec_so_basis = np.zeros((n_2q_states, 2 * n_elec), dtype=int);
+
     for idx in range(n_2q_states):
         curr_config = state_configs[idx, :]
         curr_vec = np.zeros((2 * n_elec))
@@ -832,7 +839,7 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
         elements of the array. To use all spin subspaces, set spin_subspace='all'.
         The default is 'all'.
         n_se_orbs: int
-            Number of single-electron orbitals basis states..
+            Number of single-electron orbitals basis states.
         se_energies: float 1d  array
             Corresponding single electron orbital basis state eigenenergies.
         se_cmes : double 2D array
@@ -1013,7 +1020,7 @@ def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes,
         
         # The remaining indices correspond to exactly how many swaps were
         # in order to apply each annihilation operator, so calculate the phase
-        phase = (-1)**sum(annih_ids)
+        phase = (-1)**np.sum(annih_ids)
         
         return phase
 

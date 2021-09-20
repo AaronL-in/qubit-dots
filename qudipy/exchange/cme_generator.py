@@ -19,16 +19,16 @@ import gc       # for memory cleanup
 #required if parallelization is requested
 #rom numba import njit, boolean, int32, double, prange
 
-omega = 7.53E+12        #value used from one of the optimization results
 import gc
 
 durations = {}
-for n in range(12,19,2):
+for n in [18,20]:
+#for n in [5,6,7,8]:
+#for n in [5,11,13,14,15,16]:
     temp = time.time()
-    matrix = exch.calc_origin_cme_matrix(n, n, omega=omega, consts=qd.Constants("GaAs"), 
-                           rydberg=False,  # parallelize=True,
-                            save_dir='D:\\QuDiPy tutorial data\\CMEs',
-                           #save_dir='..\\tutorials\\QuDiPy tutorial data\\CMEs',
+    matrix = exch.calc_origin_cme_matrix(n, n, # parallelize=True,
+                           # save_dir='D:\\QuDiPy tutorial data\\CMEs',
+                           save_dir='..\\tutorials\\QuDiPy tutorial data\\CMEs',
                            #save_dir=None
                            )
     durations['n='+str(n)]= time.time() - temp

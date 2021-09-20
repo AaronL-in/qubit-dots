@@ -5,6 +5,8 @@ Quantum utility solver functions
 """
 
 import numpy as np
+from numpy.lib import format
+
 import time
 import qudipy as qd
 import qudipy.exchange as ex
@@ -13,6 +15,7 @@ from scipy.sparse.linalg import eigsh
 from scipy.linalg import eigh
 from qudipy.qutils.math import inner_prod
 import gc
+
 
 def build_1DSE_hamiltonian(consts, gparams):
     ''' 
@@ -185,7 +188,7 @@ def solve_schrodinger_eq(consts, gparams, n_sols=1):
 
 def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4, 
                        consts=qd.Constants("vacuum"), optimize_omega=True,
-                       omega=None, opt_omega_n_se=2, ho_cmes=None, 
+                       omega=None, opt_omega_n_se=5, ho_cmes=None, 
                        cme_dir=None, spin_subspace='all'):
     '''
     This function calculates the many electron energy spectra given an
@@ -315,18 +318,38 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
         print('Loading harmonic orbital CME matrix from the specified '+
                         'directory\n')
         try:
-            with open(cme_dir+f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy',
-                                         'rb') as f:
-                ho_cmes = np.load(f)
+            ho_cmes = np.load(cme_dir+
+                            f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy', 
+                            mmap_mode='c')
+
+            #ho_cmes = format.open_memmap(cme_dir+f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy')
+            #testing a sparse matrix
+
+            # transforming into SI units and scaling by the
+            # appropriate value of omega
+            ho_cmes *= (consts.e**2  / (8 * consts.pi * consts.eps) *
+                            np.sqrt(consts.me * omega_opt/ consts.hbar))
+
         except FileNotFoundError:
-            print('CME library of the specified dimensions is not found')
+            print('CME matrix of the specified dimensions is not found.\n' +
+            'Will construct the CME matrix now ' + 
+            'and save in the specified folder...\n')
+            cme_time = time.time()
+            ho_cmes = ex.calc_origin_cme_matrix(n_xy_ho[0], n_xy_ho[1], 
+                                                consts=consts, rydberg=False, 
+                                                        omega=omega_opt)
+            cme_time = time.time() - cme_time
+            print('Done!')
+            print(f'Elapsed time is {cme_time} seconds.\n')
 
     else:
         print('Harmonic orbital CME matrix NOT supplied as an argument!\n'+
               'Will construct the CME matrix now...\n')
         
         cme_time = time.time()
-        ho_cmes = ex.calc_origin_cme_matrix(n_xy_ho[0], n_xy_ho[1], omega=1.0)
+        ho_cmes = ex.calc_origin_cme_matrix(n_xy_ho[0], n_xy_ho[1], 
+                                                consts=consts, rydberg=False, 
+                                                    omega=omega_opt)
         cme_time = time.time() - cme_time
         print('Done!')
         print(f'Elapsed time is {cme_time} seconds.\n')
@@ -344,15 +367,11 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     % already. Useful for checking convergence wrt number of orbitals. 
     CMEs_lib_sub = getSubsetOfCMEs(sparams, CMEs_lib);
     '''
-    
-    # Scale the CMEs to match the origin HOs used to construct the
-    # transformation matrix
-    A = np.sqrt(1.0 / omega_opt)
 
     # Now do a basis transformation using a_mat
     full_trans_mat = np.kron(a_mat, a_mat)
     
-    se_cmes = full_trans_mat @ (ho_cmes / A) @ full_trans_mat.conj().T
+    se_cmes = full_trans_mat @ ho_cmes @ full_trans_mat.conj().T
     
     transform_time = time.time() - transform_time
     print('Done!')
