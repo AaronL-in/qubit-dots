@@ -669,8 +669,7 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
 
     # If SI units, we need to scale CMEs by k * \sqrt(m_e/\hbar)
     if not rydberg:
-        CMEs *= (consts.e**2  / (8 * consts.pi * consts.eps) *
-                                np.sqrt(consts.me / consts.hbar))
+        CMEs *= consts.Ry
                         
     # Scale by omega if not the default value
     CMEs = CMEs if omega == 1.0 else CMEs * math.sqrt(omega)
