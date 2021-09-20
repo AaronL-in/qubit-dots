@@ -652,11 +652,6 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
 
                 CMEs[row_idx, col_idx] = CMEs[symm_row_idx, symm_col_idx]
 
-            
-    # We only found the upper triangular part of the matrix so find the
-    # lower triangular part here
-    #temp = CMEs - np.diag(np.diag(CMEs))
-    #CMEs = CMEs + temp.T # CME is real so no need for .conj()
         
     # Now scale CME matrix if appropriate
     # If effective Rydberg units, then no need to scale CME   
