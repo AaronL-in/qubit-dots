@@ -317,6 +317,8 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     elif cme_dir:
         print('Loading harmonic orbital CME matrix from the specified '+
                         'directory\n')
+        constant_factor = (consts.e**2  / (8 * consts.pi * consts.eps) *
+                            np.sqrt(consts.me * omega_opt/ consts.hbar))
         try:
             ho_cmes = np.load(cme_dir+
                             f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy', 
@@ -327,8 +329,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
 
             # transforming into SI units and scaling by the
             # appropriate value of omega
-            ho_cmes *= (consts.e**2  / (8 * consts.pi * consts.eps) *
-                            np.sqrt(consts.me * omega_opt/ consts.hbar))
+            ho_cmes *= constant_factor
 
         except FileNotFoundError:
             print('CME matrix of the specified dimensions is not found.\n' +
@@ -336,8 +337,17 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
             'and save in the specified folder...\n')
             cme_time = time.time()
             ho_cmes = ex.calc_origin_cme_matrix(n_xy_ho[0], n_xy_ho[1], 
-                                                consts=consts, rydberg=False, 
-                                                        omega=omega_opt)
+                                                consts=consts)
+            np.save(cme_dir+
+                            f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy', ho_cmes)
+            # this step will delete the large matrix from memory 
+            # and will make sure it is accessed from the storage directly 
+            del ho_cmes
+            gc.collect()
+            ho_cmes = np.load(cme_dir+ f'\\CMEs_{n_xy_ho[0]}x{n_xy_ho[1]}.npy', 
+                                mmap_mode='c')
+            ho_cmes *= constant_factor
+
             cme_time = time.time() - cme_time
             print('Done!')
             print(f'Elapsed time is {cme_time} seconds.\n')

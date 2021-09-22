@@ -500,13 +500,10 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
     
     # Take care of the scalar coefficients
     globPhase = (-1) ** (nb + mb + ng + mg)
-    cme = cme/(math.pi * math.sqrt(2)) * globPhase
+    cme *= 2 /(math.pi * math.sqrt(2)) * globPhase
     cme = cme / math.sqrt(math.factorial(na) * math.factorial(ma) *\
         math.factorial(nb) * math.factorial(mb) * math.factorial(ng) *\
         math.factorial(mg) * math.factorial(nd) * math.factorial(md))
-        
-    # If effective Rydberg units, then multiply by 2
-    return 2 * cme
         
     return cme 
 
@@ -667,9 +664,10 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
         with open(save_dir+f'\\CMEs_{nx}x{ny}.npy', 'wb') as f:
             np.save(f, CMEs)
 
-    # If SI units, we need to scale CMEs by k * \sqrt(m_e/\hbar)
+    # If SI units, we need to scale CMEs by k 
     if not rydberg:
-        CMEs *= consts.Ry
+        CMEs *= (consts.e**2 / (8 * consts.pi * consts.eps) *
+              np.sqrt(consts.me / consts.hbar ))
                         
     # Scale by omega if not the default value
     CMEs = CMEs if omega == 1.0 else CMEs * math.sqrt(omega)

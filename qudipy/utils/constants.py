@@ -74,5 +74,5 @@ class Constants:
 
         # effective Rydberg energy and distance in SI units    
         self.a_B = 4 * self.pi * self.eps *self.hbar**2 / (self.me * self.e**2)
-        self.Ry = self.e^2 / (8 * self.pi * self.eps * self.a_B)
+        self.Ry = self.e**2 / (8 * self.pi * self.eps * self.a_B)
         
