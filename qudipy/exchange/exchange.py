@@ -8,14 +8,16 @@ import numpy as np
 import math
 import qudipy as qd
 from qudipy.utils import nchoosek
-from itertools import combinations
+from itertools import combinations, permutations, product
 from scipy.linalg import eigh
 from scipy.optimize import minimize
-from scipy.special import gamma, beta
-from scipy.sparse import csr_matrix, save_npz
+from scipy.special import gamma, beta, comb
+from scipy import sparse
 from tqdm import tqdm
+
+from sys import getsizeof
+from os import getcwd
 import time
-import os
 
 
 def optimize_HO_omega(gparams, nx, ny=None, ecc=1.0, omega_guess=1E15, 
@@ -511,8 +513,8 @@ def __calc_origin_cme(na:int, ma:int, nb:int, mb:int, ng:int,
 def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"), 
                            rydberg=True, save_dir=None):
     '''
-    Calculates the Coulomb Matrix Elements for a harmonic orbital basis. CMEs
-    are calculated assuming omega = 1 and then appropriately scaled.
+    Calculates the Coulomb Matrix Elements for a harmonic orbital basis. 
+    CMEs are calculated assuming omega = 1 and then appropriately scaled.
 
     Parameters
     ----------
@@ -645,22 +647,12 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
 
                 CMEs[row_idx, col_idx] = CMEs[symm_row_idx, symm_col_idx]
 
-            
-    # We only found the upper triangular part of the matrix so find the
-    # lower triangular part here
-    #temp = CMEs - np.diag(np.diag(CMEs))
-    
-    # CMEs = CMEs + temp.T # CME is real so no need for .conj()
 
     # We save only the matrix in Rydberg units for omega=1.0 by default.
     # This makes the matrix universal for all material systems. 
     # The appropriate scaling will be done elsewhere if the library is loaded
 
     if save_dir is not None: 
-        #testing sparse saving
-        #sparse_cmes = csr_matrix(CMEs)
-        #with open(save_dir+f'\\CMEs_{nx}x{ny}_sp.npy', 'wb') as f:
-        #    np.save(f, sparse_cmes)
         with open(save_dir+f'\\CMEs_{nx}x{ny}.npy', 'wb') as f:
             np.save(f, CMEs)
 
@@ -675,152 +667,335 @@ def calc_origin_cme_matrix(nx, ny, omega=1.0, consts=qd.Constants("vacuum"),
 
     return CMEs
     
-
-def build_so_basis_vectors(n_elec: int, spin_subspace, n_se_orbs: int):
+        
+        
+def build_fock_basis(n_elec: int, n_se_orbs: int, spin_subspace='all'):   
     '''
-    Build the many electron spin orbit basis vectors. These can be used to map
-    the output of the many electron eigenvectors to the corresponding many
-    electron spatial wavefunctions and spin states.
+    Build the many electron spin-orbit basis vectors in Fock space.
+    
+    Parameters:
+        n_elec: int
+            Number of electrons in the system.
+        n_se_orbs: int
+            Number of single electron orbitals to use when constructing the spin
+            orbit subspace.
 
-    Parameters
-    ----------
-    n_elec : int
-        Number of electrons.
-    spin_subspace : int array
-        Specifies which sping subspaces to use when constructing the 2nd 
-        quantization Hamiltonian. As an example, for a 3 electron system, there
-        are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use only 
-        S_z > 0, set spin_subspace=[2,3] corresponding to the 3rd and 4th 
-        elements of the array. To use all spin subspaces, set spin_subspace='all'.
-        The default is 'all'.
-    n_se_orbs : int
-        Number of single electron orbitals to use when constructing the spin
-        orbit subspace.
+    Keyword arguments:
+        spin_subspace: int 1d array/iterable, or string
+            Specifies which subspaces of the total spin projection operator S_z
+            to use when constructing the 2nd quantization Hamiltonian. Limiting 
+            the spin subspace significantly speeds up the calculation of the 
+            energy eigenvalues, since the Heisenberg Hamiltonian commutes with 
+            S_z, which leads to degeneracy. Usually, [0] for even n_elec or 
+            [0.5] for odd n_elec is sufficient to obtain 
+            all distinct energy values. 
+            
+            As an example, for a 3 electron system, 
+            there are four possible S_z values [-1.5, -0.5, 0.5, 1.5]. To use  
+            only S_z > 0, set spin_subspace = [1/2, 3/2].
+            To use all spin subspaces, set spin_subspace='all'.
+            The default is 'all'.
 
     Returns
     -------
-    vec_so_basis : int 2D array
-        Compilation of all many electron spin orbit basis states. First index
-        corresponds to the ith state and the other indices are for the individual
-        electron states for that given many electron state. Format is as follows:
-        The first K = n_elec indicies correspond to the orbital state and the last
-        K = n_elec indicies correspond to the spin state.
-        As an explicit example for a K = 3 case, consider the multi-electron 
-        spin-orbit state [4,2,3,0,0,1] which means:
-        1st electron is in the 4th orbital state (idx=0) with spin down (idx=3)
-        2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
-        3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
-    map_so_basis : int 2D array
-        A 2D array which maps the ith single electron spin orbit state (first
-        index) to the corresponding single electron orbital and spin state.
+    fock_so_basis, fock_so_basis_bool : int 1D array, and sparse bool 2D array
+        Compilation of all many-electron spin-orbit basis states in Fock space
+        within the specified spin subspace. 
 
-    '''
-    # Parse input, and convert to numpy array
-    if spin_subspace == 'all':
-        spin_subspace = np.array(range(n_elec+1))
+        Each of the rows of the fock_so_basis_bool matrix
+        is a boolean 1D array of length 2 * n_se_orbs
+        with the total number of logical '1's equal to n_elec.
+        First half of the row corresponds to spin-down states, whereas the second 
+        half is vice versa. 
+        e.g. array([1,0,0,1,0,1,0,0], dtype=bool) for n_se_orbs=4, n_elec=3:
+        1 electron in ground state, spin down
+        1 electron in the 3rd excited state, spin down
+        1 electron in the 1st excited state, spin up
+        Each row is packed into an integer number as follows: 
+        [0,0,1,1] -> 3, [0,1,0,1] -> 5, and stored in the 1D integer array 
+        fock_so_basis. 
+
+        Both the integer and boolean representations are returned. Mind that 
+        fock_so_basis_bool can be reconstructed from fock_so_basis only if 
+        n_se_orbs is known a priori. 
+
+    '''       
+        # building the spin subspace 
+    
+    timer = time.time()
+
+    if isinstance(spin_subspace, str) and spin_subspace.lower() == 'all':
+        spin_subspace = np.arange(- n_elec / 2, n_elec / 2 + 1, 1 )
+        
     else:
-        spin_subspace = np.array(spin_subspace)
+        # set removes repeated values
+        spin_subspace = np.array(list(set(spin_subspace)))
+
+    # checking if the number format of spin_subspace is correct, i.e
+    # there are only integers for even n_elec or only half integers for odd n_elec
+
+    denom = 2 if n_elec % 2 else 1  # gives 2 if S_z values are 1/2, 3/2, etc.
+
+    ints_or_half_ints = (np.array_equal(spin_subspace * denom, 
+                                    (spin_subspace * denom).astype(int)) &
+                            np.all((spin_subspace * 2 + denom) % 2)
+                            )
+    if not ints_or_half_ints:
+        raise ValueError('Incorrect format of the input, please try again. '+
+        'All numbers must be either integers (for even n_elec)' 
+        +' or half integers (for odd n_elec) simultaneously')
     
-    # Check to see if spin subspace array is valid or not (S_z indices
-    # cannot exceed n_elec or be less than 0.
-    if min(spin_subspace) < 0 or max(spin_subspace) > n_elec:
-        raise ValueError("Spin subspace indices must be positive integers and"+
-                         " less than n_elec+1.")
-    # Otherwise check that all supplied indices are integers
-    else:
-        for idx in spin_subspace:
-            if np.floor(idx) != idx:
-                raise TypeError("Spin subspace indices must be positive integers"+
-                                " and less than n_elec+6.")
-         
-    # Get total number of single electron spin-orbit states
-    n_se_so = 2 * n_se_orbs
-    if n_elec > n_se_so:
-        raise ValueError("Not enough states for the desired number of electrons.");
-    elif n_elec < 2:
-        raise ValueError("Need at least two electrons to calculate J.")
+    # checking if the spin subspace can be realized in such systems
+    if np.any(np.greater(np.abs(spin_subspace), n_elec / 2)):
+        raise ValueError(f'The system with {n_elec} electrons cannot have '+
+                            'the specified total spin(s). Please try again')
 
-    # Here we create a map between the ith spin-orbit state and the
-    # corresponding explicit orbital and spin state.
-    map_so_basis = np.zeros((n_se_so, 2));
-    for idx in range(n_se_so):
-        map_so_basis[idx, :] = [idx // 2, idx % 2]
+
+    # creating empty arrays where Fock states will be collected in the 
+    # uncompressed and compressed format (with the Fock vector being a boolean 
+    # array and the binary representation of an integer, respectively)
+
+    fock_so_basis_bool = np.empty((0, 2 * n_se_orbs), dtype=bool)
+
+    fock_so_basis = np.empty((0,), dtype=int)
+    # calculating the number of spins up and spins down for each spin 
+    # subspace
+
+    for sz in spin_subspace:
+        # For each S_z value, the numbers of electrons in spin-up and spin-down 
+        # states are obtained from N(↑) - N(↓) = 2 S_z, N(↑) + N(↓) = n_elec
+
+        n_down = int(n_elec / 2 - sz)
+        n_up = int(sz + n_elec / 2)
+
+        # numbers of multi-electron spin-orbit states 
+        n_combs_down = comb(n_se_orbs, n_down, exact=True)
+        n_combs_up = comb(n_se_orbs, n_up, exact=True)
+
+        n_combs = n_combs_up * n_combs_down
+
+        # a Fock state subarray for this subspace
+        fock_subset_bool = np.zeros((n_combs, 2 * n_se_orbs), dtype=bool)
+
+        # creating the arrays with column indexes of logical '1's  
+        # for spins up and down separately.
+
+        ones_ids_up = (np.array(list(combinations(range(n_se_orbs), 
+                                            n_up)), dtype=int) )
+
+        ones_ids_down = np.array(list(combinations(range(n_se_orbs), 
+                                            n_down)), dtype=int) + n_se_orbs
+        # the shift by n_se_orbs is necessary because all spin-up
+        # information is stored in the left half of Fock vector,
+        # and we read integers represented as bitsets right-to-left, 
+        # not left-to-right
     
-    # Order the spin-orbital basis by spin then orbital
-    sort_idx = np.lexsort((map_so_basis[:,0], map_so_basis[:,1]))
-    map_so_basis = map_so_basis[sort_idx,:]
+        # repeating each of the arrays an appropriate number of times 
+        # to concatenate them and obtain all possible combinations of 
+        # electrons with spins up and down
+        # (similar to itertools.product of the arrays)
 
-    # Get all possible state configurations and total number (will be cut
-    # down a bit later on)
-    state_configs = np.array(list(combinations(range(n_se_so), n_elec)), dtype='int32')
-    n_2q_states = nchoosek(n_se_so, n_elec)
+        ones_ids_down = np.broadcast_to(ones_ids_down, 
+                            (n_combs_up, )+ ones_ids_down.shape).swapaxes(0,1)
+       
+        ones_ids_up = np.broadcast_to(ones_ids_up, 
+                            (n_combs_down, ) + ones_ids_up.shape)
+
+        ###ones_ids_down = np.repeat(ones_ids_down, n_combs_up, axis=0)
+        ###ones_ids_up = np.tile(ones_ids_up, (n_combs_down,1))
+
+        #concatenate spin-up and spin-down electron positions, and flatten the 
+        # first two dimensions
+
+        ones_ids = np.concatenate((ones_ids_down, ones_ids_up), 
+                                axis=2).reshape(n_combs, n_elec)
+
+        ###ones_ids = np.concatenate((ones_ids_down, ones_ids_up), axis=1)
+
+        # creating the Fock space vector subset corresponding to the 
+        # specified S_z value:
+        # interpreting each row as a bitset and converting each of them
+        # into an integer
+
+        fock_subset = np.sum(np.left_shift(1, ones_ids), axis=1, 
+                                    dtype=int)
+
+        
+        fock_subset_bool[np.arange(n_combs).reshape(n_combs,1), ones_ids] = 1
+
+        #print('fock subset /ones ids\n', fock_subset # fock_subset)
+
+        # appending the array of all Fock states
+        fock_so_basis = np.append(fock_so_basis, fock_subset, axis=0)
+        fock_so_basis_bool = np.append(fock_so_basis_bool, 
+                                            fock_subset_bool, axis=0)
+
+
+    print(f'Fock basis of length {fock_so_basis.shape[0]} created, '
+                                f'time elapsed:{time.time()-timer} s' )
+
+    return fock_so_basis, sparse.csr_matrix(fock_so_basis_bool)
+
+def get_fock_spin_config(fock_so_basis_bool):
+    """
+    Get the spin configuration of a Fock spin-orbit basis in boolean 
+    representation.
     
-    # Now decode the states found using nchoosek into our format where the
-    # first K = n_elec indicies correspond to the orbital state and the last
-    # K = n_elec indicies correspond to the spin state.
-    # As an explicit example for a K = 3 case, consider the multi-electron 
-    # spin-orbit state [4,2,3,0,0,1] which means:
-    # 1st electron is in the 4th orbital state (idx=0) with spin down (idx=3)
-    # 2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
-    # 3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
-    vec_so_basis = np.zeros((n_2q_states, 2 * n_elec), dtype=int);
+    Parameters:
+        fock_so_basis_bool: 2D sparse matrix
+            Fock spin-orbit basis in boolean representation, 
+            with the rows of type |0 0 1 0 1 0 0 1>
 
-    for idx in range(n_2q_states):
-        curr_config = state_configs[idx, :]
-        curr_vec = np.zeros((2 * n_elec))
-        
-        for jdx in range(n_elec):
-            curr_vec[jdx] = map_so_basis[curr_config[jdx], 0]
-            curr_vec[jdx + n_elec] = map_so_basis[curr_config[jdx], 1]
-                                                
-        vec_so_basis[idx, :] = curr_vec
-        
-    # Rewrite each state to the following convention:
-    # From left to right, first spin-down and then spin-up.  Within a spin
-    # species from left to right, sort by ascending energy level (i.e.
-    # orbital index i). This simplifies construction of the 2nd quantization
-    # Hamiltonian
-    for idx in range(n_2q_states):
-        temp = vec_so_basis[idx, :]
-        
-        temp = np.reshape(temp, [n_elec, 2], order='F')
-        
-        sort_idx = np.lexsort((temp[:, 0], temp[:, 1]))
-        temp = temp[sort_idx, :]
-        
-        vec_so_basis[idx, :] = np.reshape(temp, [2 * n_elec], order='F')
+    Returns
+    -------
+    fock_spin_config: 1D array
+        Spin configuration: total number of spin-up states in each Fock vector
 
-    # Now we want to truncate the spin subspace if desired
-    # First calculate the possible spin subspaces
-    possible_Sz = np.linspace(-n_elec/2, n_elec/2, n_elec+1)
+    """
+    # inferring the parameters from the supplied basis
+    basis_size, n_so = fock_so_basis_bool.shape
+    n_se_orbs = n_so // 2
+    # finding the number of electrons in each configuration and verifying they 
+    # are the same
+    nums_elec = fock_so_basis_bool.sum(axis=1, dtype=int)
+    n_elec = nums_elec[0,0]
+    if np.any(nums_elec - n_elec):
+        raise ValueError('The Fock basis is constructed incorrectly. '
+                            'Verify that the total number of '
+                            'electrons is the same in each state')
 
-    desired_sz = possible_Sz[spin_subspace]
+
+    # halving the rows, summing up each half, reshaping back
+    spins_down_up = np.asarray(fock_so_basis_bool.reshape((2 * basis_size,
+                                            n_se_orbs)).sum(axis=1, dtype=int) 
+                                                ).reshape(basis_size,2)
+    fock_spin_config = spins_down_up[:,1]  # total numbers of spin up states
+    return fock_spin_config
+
     
-    # Loop through each configuration and calcuate Sz.  If it is not
-    # one of the desired Sz subspaces, then remove that basis vector.
-    # Note that we loop backwards through the states here because we
-    # remove rows from the basisVectors matrix which readjusts the
-    # indices of the non-deleted rows.
-    for idx in reversed(range(n_2q_states)):
+
+            
+def annihilation_mask(fock_so_basis, fock_so_basis_bool):
+    """
+    Build the mask which shows what operators of the form 
+    c_j^\dag c_i^\dag c_k c_l, when applied, give nonzero elements.
+    
+    Parameters:
+        fock_so_basis: 2D array
+            Fock basis in bitset representation
+        fock_so_basis_bool: 2D sparse matrix
+            Fock basis in boolean representation
+    Returns
+    -------
+    annihilation_mask: 2D boolean array
+        Mask which shows which CMEs are to be used to construct the
+        second quantization Hamiltonian
+    """
+
+    # total size of the basis, and number of single electron 
+    # spin-orbit wavefunctions
+    basis_size, n_so = fock_so_basis_bool.shape
+    n_se_orbs = n_so // 2
+
+    kl_s = np.arange(n_so **2)
+    k_s, l_s = (kl_s // n_so, kl_s % n_so)      # l index changes fastest
+
+    # creating a bit mask annihilating an individual 
+    # spin-orbit basis vector |k, s>, |l, s>
+
+    k_bit_mask = np.left_shift(1, k_s)
+    l_bit_mask = np.left_shift(1, l_s)
+    
+    kl_bit_mask = l_bit_mask  ^ k_bit_mask  # xor ensures that the application 
+                                            # of c_k c_l gives zero when k==l                                           # 
+
+    timer = time.time()
+
+    # equivalence check is to ensure that both electrons were annihilated
+    # multiplication is to ensure that the bit mask is nonzero
+    # kl_mask = (((fock_so_basis[:, np.newaxis] & kl_bit_mask ) == kl_bit_mask)
+    #                     & np.greater(kl_bit_mask,0) )
+
+    kl_mask = sparse.coo_matrix(
+       ( (fock_so_basis[:, np.newaxis] & kl_bit_mask ) == kl_bit_mask)
+                        * kl_bit_mask, dtype=bool)
+
+    # the ji mask is analogous, so the total mask before comparison of bra
+    # and ket vectors:
+    # annihilation_mask = np.kron(kl_mask, kl_mask)
+    applicability_mask = sparse.kron(kl_mask, kl_mask, format='bsr')
+
+    print(f'Applicability mask created within {time.time()-timer} s')  
+
+    kl_mask_coords = (kl_mask.row, kl_mask.col)
+
+    ########## Electron scattering on Coulomb potential ###############
+
+    # constructing the "annihilated" bitsets by flipping bits where the 
+    # mask of c_k c_l applicability indicates
+
+    timer = time.time() 
+    kl_bitsets = sparse.coo_matrix(
+                        ((fock_so_basis[:, np.newaxis] 
+                            ^ kl_bit_mask)[kl_mask_coords], kl_mask_coords), 
+                                        shape=(basis_size, n_so**2)).tocsr()
+                    
+    print(f'Active bitsets grouped within {time.time()-timer} s')  
+    # masks on the left and on the right are very similar in structure. 
+    # size of each is (basis_size)**2 x (n_so)**4
+    # 
+    # ons = np.ones((basis_size, n_so**2), dtype=int)
+    timer = time.time() 
+
+    right_bitsets = sparse.kron(kl_mask, kl_bitsets, 
+                                    format='bsr') # elements change faster
+    left_bitsets = sparse.kron(kl_bitsets, kl_mask, 
+                                    format='bsr') # elements change more slowly
+
+    print(f'Orbital Kronecker products built within {time.time()-timer} s') 
+
+    # bra and ket comparison: 
+    # elements to exclude from the total annihilation mask because of 
+    # the incompatibility of spin-orbit states for scattering
+    timer = time.time() 
+    orb_excl_mask = right_bitsets != left_bitsets
         
-        curr_spin_config = vec_so_basis[idx, n_elec:]
-        curr_config_sz = 0
-        
-        for jdx in range(n_elec):
-            # spin down
-            if curr_spin_config[jdx] == 0:
-                curr_config_sz -= 0.5
-            # spin up
-            else: 
-                curr_config_sz += 0.5
+    print(f'Orbital exclusion  matrix built within {time.time()-timer} s')
 
-        if not curr_config_sz in desired_sz:
-            vec_so_basis = np.delete(vec_so_basis, (idx), axis=0)
-                
-    return vec_so_basis, map_so_basis
+    ############## Checking spin conservation upon scattering ############## 
 
+    # spin states extracted from spin-orbit states
+    x_k, x_l =  k_s // n_se_orbs, l_s // n_se_orbs
+    x_kl = (2 * x_k + x_l).astype(np.uint8)
 
-def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int, 
+    # the spin mask is the same for all many-electron states, i.e. all rows
+    timer = time.time()
+    kl_spins = sparse.coo_matrix((x_kl[kl_mask.col], kl_mask_coords), 
+                                        shape=(basis_size, n_so**2)).tocsr()
+    print(f'Active spin configurations grouped within {time.time()-timer} s') 
+
+    timer = time.time()
+    right_spins = sparse.kron(kl_mask, kl_spins, 
+                                    format='bsr') # elements change faster
+    left_spins = sparse.kron(kl_spins, kl_mask, 
+                                    format='bsr') # elements change more slowly
+    print(f'Spin Kronecker products built within {time.time()-timer} s') 
+
+    # states to exclude from the annihilation matrix because of
+    # spin incompatibility
+    spin_excl_mask = right_spins != left_spins
+
+    # zeroing the values in the annihilation mask that are included in the 
+    # exclusion masks   
+
+    timer = time.time() 
+    annihilation_mask = (applicability_mask > spin_excl_mask) > orb_excl_mask
+    print(f'Annihilation mask constructed within {time.time()-timer} s')
+
+    # conversion for fast summation
+    return annihilation_mask.tobsr()       #### .tocsr()
+
+def build_sq_ham(n_elec: int, spin_subspace, n_se_orbs: int, 
                            se_energies, se_cmes):
     '''
     Builds the second quantization Hamiltonian.  
@@ -844,325 +1019,138 @@ def build_second_quant_ham(n_elec: int, spin_subspace, n_se_orbs: int,
 
     Returns
     -------
-    H2ndQ : double 2D array
-        Second quantization hamiltonian.
+    ham_sq : double 2D array
+        Second quantization Hamiltonian.
 
     '''
+    #constructing the Fock basis
+    fock, fock_bool = build_fock_basis(n_elec, n_se_orbs, spin_subspace)
+    n_so = n_se_orbs *2
+    basis_size = fock.shape[0]
     
-    se_energies = np.array(se_energies)
-    if len(se_energies) != n_se_orbs:
-        raise ValueError("The number of suppled single electron energies in"+
-                         f" se_energies: {len(se_energies)} must be equal to"+
-                         f" n_se_orbs: {n_se_orbs}.\n")
+    #spin-up and spin-down single-electron energies are the same
+
+    se_energies_spin = np.tile(np.flip(se_energies), 2)
+
+    ens_matrix = fock_bool.multiply(se_energies_spin)
+
+    # total energies of each Fock state ignoring interactions 
+    # ravelled to a 1D array
+
+    ens_noninter = np.asarray(ens_matrix.sum(axis=1)).ravel()
     
-    vec_so_basis, map_so_basis = build_so_basis_vectors(n_elec, spin_subspace,
-                                                        n_se_orbs)
+    # building up the diagonal part of the Hamiltonian
+
+    ham_0 = np.diag(ens_noninter)
+
+    ########## building up the nondiagonal part ############
+
+    # introducing the summation indices extracted from the compound
+    # index (orbital + spin DoF)
+
+    ijkl_s = np.arange(n_so ** 4, dtype=int)
+    ij_s, kl_s = ijkl_s // n_so ** 2, ijkl_s % n_so ** 2
     
-    # Get number of 2nd quantization spin-orbital basis states
-    n_2q_states = vec_so_basis.shape[0]
+    i_s, j_s = ij_s // n_so, ij_s % n_so # i changes slowest, j is 2nd slowest
+    k_s, l_s = kl_s // n_so, kl_s % n_so # k is 2nd fastest, l is the fastest
 
-    # Initialize 2nd quantization Hamiltonian
-    T = np.zeros((n_2q_states,n_2q_states), dtype=complex)
-    Hc = np.zeros((n_2q_states,n_2q_states), dtype=complex)
-                
-    # The second quantization Hamiltonian has two terms: T + H_c.  T
-    # describes all the single particle energies while
-    # H_c describes all the direct and exchange electron interactions.
+    # orbital states without spins    
+    i, j, k, l = i_s % 2, j_s % 2, k_s % 2, l_s % 2
+
+    ij = n_se_orbs * i + j    
+    kl = n_se_orbs * k + l       
+    ijkl = n_se_orbs**2 * ij + kl
+
+    # array of phases for a flattened CME matrix
+    phase = (-1) ** (i + j + k + l)
     
-    # Let's first build the single-particle energy operator as it's the
-    # easiest.
-    # All elements lie only on the diagonal and each element is simply the
-    # sum of single electron energies comprising the state
-    # sum_j(\eps_j c_j^\dag c_j)
-    # First get all of the energies
+    # creating a Coulomb interaction part of the Hamiltonian
+    timer = time.time()
+
+    ann_mask = annihilation_mask(fock, fock_bool)
     
-    for idx in range(n_2q_states):
-        curr_se_orbs = vec_so_basis[idx, :n_elec]
-        T[idx, idx] = sum(se_energies[curr_se_orbs])
+    print(f'Annihilation mask of size {ann_mask.shape}',   
+    f' in {ann_mask.format} format has been created ',
+        f'successfully within {time.time()-timer} sec')
+    # CMEs that give nonzero contribution to the Hamiltonian
+    # scaled by an appropriate phase
+    timer = time.time()
+    phased_cmes = ann_mask.multiply(se_cmes.ravel()[ijkl]).multiply(phase* 0.5) # 
+
+    print(f'Matrix of scaled CMEs of shape {phased_cmes.shape} in',
+     f'{phased_cmes.format} format has been created ',
+        f'successfully within {time.time()-timer} sec')
+    # the nondiagonal part of the Hamiltonian due to Coulomb interaction
+    ham_coul = phased_cmes.sum(axis=1).reshape(basis_size, basis_size)
     
-    # Now that the T matrix is assembled, let's turn to the H_c term.
-    for ndx in range(n_2q_states):
-        for mdx in range(ndx + 1, n_2q_states):
-            Hc[ndx, mdx] = __hc_helper(n_elec, ndx, mdx, n_se_orbs, se_cmes,
-                                       vec_so_basis, map_so_basis)
-            
-    # Get lower triangular part of matrix
-    Hc = Hc + Hc.conj().T
-    print('1. The nondiagonal part is built')
+    ham_sq = ham_0 + ham_coul
+    return ham_sq
 
-    # Get diagonal elements
-    for ndx in range(n_2q_states):
-        Hc[ndx, ndx] = __hc_helper(n_elec, ndx, ndx, n_se_orbs, se_cmes,
-                                   vec_so_basis, map_so_basis)
-    print('2. The diagonal part is built')
-    # Build the full Hamiltonian (and correct numerical errors by forcing
-    # it to be symmetric)
-    H2ndQ = T + Hc
-    # H2ndQ = (H2ndQ + H2ndQ.conj().T) / 2
 
-    return H2ndQ
-
-def __hc_helper(n_elec:int, ndx:int , mdx:int, n_se_orbs:int, se_cmes, 
-                            vec_so_basis, map_so_basis):
-    '''
-    Helper function for constructing H_c term of second quantization hamiltonian
-
-    Parameters
-    ----------
-    n_elec : int
-        Number of electrons in the system.
-    ndx : int
-        Current many electron spin orbit basis state index for 1st electron.
-    mdx : int
-        Current many electron spin orbit basis state index for 2nd electron.
-    n_se_orbs : int
-        Number of single electron orbital basis states.
-    se_cmes : double 2D array
-        Coulomb Matrix Elements in the single electron basis.
-    vec_so_basis : int 2D array
-        Compilation of all many electron spin orbit basis states. First index
-        corresponds to the ith state and the other indices are for the individual
-        electron states for that given many electron state. Format is as follows:
-        The first K = n_elec indicies correspond to the orbital state and the last
-        K = n_elec indicies correspond to the spin state.
-        As an explicit example for a K = 3 case, consider the multi-electron 
-        spin-orbit state [4,2,3,0,0,1] which means:
-        1st electron is in the 4th orbital state (idx=0) with spin down (idx=3)
-        2nd electron is in the 2nd orbital state (idx=1) with spin down (idx=4)
-        3rd electron is in the 3rd orbital state (idx=2) with spin up   (idx=5)
-    map_so_basis : int 2D array
-        A 2D array which maps the ith single electron spin orbit state (first
-        index) to the corresponding single electron orbital and spin state.
-
-    Returns
-    -------
-    hc_elem : double
-        Calculated Coulomb Matrix Element <n|V|m>.
-
-    '''
-    # Get number of single electron spin orbital states
-    n_se_so = map_so_basis.shape[0]
-
-    hc_elem = 0
     
-    # This function simply takes an input ket and applies the annihilation
-    # operator corresponding to the n = [ind] spin-orbit state
-    def __annihilation_helper(state, idx, map_so_basis):
-        '''
-        This function takes an input ket and applies the annihilation
-        operator corresponding to the n = [idx] spin-orbit state
-
-        Parameters
-        ----------
-        state : float 1D array
-            Inputted ket vector state before annihilation.
-        idx : int
-            Index of the spin-orbit state to annihilate. See build_so_basis 
-            function for the explanation of the index encoding rules. 
-        map_so_basis: int 2D array
-            Rows represent encodings of the spin-orbit states for the single
-            electron spin and orbital states. Orbital states are in the 
-            1st column, spin states are in the 2nd column. Ordered by spin,
-            then by orbital.
-
-        Returns
-        -------
-        state: float 1D array
-            New spin-orbit many electron state.   
-        '''
-
-        annih_idx = map_so_basis[idx, :]
     
-        for jdx in range(n_elec):
-            # Check if the ith annihilation operator destroys any of the
-            # states in the ket
-            
-            if state[jdx] == annih_idx[0] \
-                and state[jdx + n_elec] == annih_idx[1]:
-                # Edit the orbital and spin state so we know it was destroyed
-                state[jdx], state[jdx + n_elec] = -1, -1
-                
-                # This will only happen once so break out of the loop
-                break
-            
-        return state
-  
-    def __phase_helper(state):
-        '''
-        This function takes an inputted ket that has been modified 
-        by annhilation operators (-1's introduced at the places where the
-        electron was annihilated) and calculates the phase term
-        caused by swapping of the fermionic operators
-        during the annihilation applications.
+#   # mask for c_l c_k
+#     right_mask = np.empty((basis_size, ) + 2 * (n_so, ), dtype=bool)
 
-        Parameters
-        ----------
-        state : 1D array
-            State of interest.
+#     # building the grid of indices
 
-        Returns
-        -------
-        phase : float
-            Accumulated phase from repeated annihilation operations.
+#     c_l, c_k = np.ogrid[:n_so, :n_so]
 
-        '''
+#     # the annihilation operators give True value only when the corresponding 
+#     # single-electron state is True within the Fock state
+#     # moreover, when l=k, the result must be False
 
-        # First find all the -1 indices in the state vector as these
-        # correspond to annihilated electrons
-        annih_ids = np.where(state == -1)[0]
-        
-        # Truncate the second half of these indices which correspond to spin
-        # and not orbital.
-        annih_ids = annih_ids[:(len(annih_ids) // 2)]
-        
-        # The remaining indices correspond to exactly how many swaps were
-        # in order to apply each annihilation operator, so calculate the phase
-        phase = (-1)**np.sum(annih_ids)
-        
-        return phase
-
-
-    #*****************#
-    # Loop over i > j #
-    #*****************#
-    for jdx in range(n_se_so - 1):
-        # Initialize the bra state <ij|
-        bra_orig = vec_so_basis[ndx, :]
-        
-        # jth annihilation operator
-        bra_orig = __annihilation_helper(bra_orig, jdx, map_so_basis)
-        
-        # Used for the final two checks in the innermost loop (ldx)
-        j_orb = map_so_basis[jdx, 0]
-        j_spin = map_so_basis[jdx, 1]
-        
-        for idx in range(jdx + 1, n_se_so):
-            # Refresh bra state for new loop
-            bra = bra_orig
-            
-            # ith annihilation operator
-            bra = __annihilation_helper(bra, idx, map_so_basis)
-
-            # Now that we have the modified bra state, check that both
-            # annihilation operators acted on it. If they both did not, then
-            # they can be commuted so the one that did not act on the
-            # vacuum state giving c|0> = 0.
-            n_annih_applied = sum(bra == -1)
-            
-            # Divide by 2 because we modify both the orbital and spin part of 
-            # the bra state
-            if n_annih_applied // 2 != 2:
-                continue
-            
-            # Now calculate the phase from applying these annihilation operators
-            bra_phase = __phase_helper(bra)
-            
-            # Remove all annihilated electrons from our many-electron bra
-            bra_trim = bra[bra != -1]
-            
-            # Used for the final two checks in the innermost loop (ldx)
-            i_orb = map_so_basis[idx, 0]
-            i_spin = map_so_basis[idx, 1]
-
-            # Loop over k < l
-            for kdx in range(n_se_so - 1):
-                # Initialize the ket state |kl>
-                ket_orig = vec_so_basis[mdx, :]
-                
-                # kth annihilation operator
-                ket = __annihilation_helper(ket_orig, kdx, map_so_basis)
-                
-                # Used for the final two checks in the innermost loop (ldx)
-                k_orb = map_so_basis[kdx, 0]
-                k_spin = map_so_basis[kdx, 1]
-                
-                for ldx in range(kdx + 1, n_se_so):
-                    # Refresh ket state for new loop
-                    ket = ket_orig
-                    
-                    # Apply annihilation operators to ket state
-                    # lth annihilation operator
-                    ket = __annihilation_helper(ket, ldx, map_so_basis)
-                    
-                    # Now that we have the modified ket state, check that both
-                    # annihilation operators acted on it.  If they both did not, then
-                    # they can be commuted so the one that did not acts on the
-                    # vacuum state giving c|0> = 0.
-                    n_annih_applied = sum(ket == -1)
-                    
-                    # Divide by 2 because we modify both the orbital and spin 
-                    # part of the ket state
-                    if n_annih_applied // 2 != 2:
-                        continue
-                    
-                    # Now calculate the phase from applying these annihilation
-                    # operators
-                    ket_phase = __phase_helper(ket)
-                    
-                    # Remove all annihilated electrons from our
-                    # many-electron ket
-                    ket_trim = ket[ket != -1]
-                    
-                    # SANITY CHECK: there should be nElec - 2 
-                    # electrons remaining.
-                    if (len(bra_trim) // 2 != (n_elec - 2) or
-                            len(bra_trim) != len(ket_trim)):
-                        raise ValueError('Incorrect number of electrons left '+
-                                         'after application of bra/ket'+
-                                         ' annhilation operators.')
-                    
-                    # Check that all the remaining electrons are the same for
-                    # the bra and ket. Otherwise, the inner product is 0.
-                    # Because of our ordering convention, after we removed the
-                    # annihilated states, the arrays should match exactly.
-                    # No need to worry about permutated vectors.
-                    if not np.array_equal(bra_trim, ket_trim):
-                        continue
-                    
-                    # Used for the final two checks in the innermost loop (ldx)
-                    l_orb = map_so_basis[ldx, 0]
-                    l_spin = map_so_basis[ldx, 1]
-                                        
-                    # Check that the spins for state pairs (i,l) and (j,k) 
-                    # match
-                    if i_spin == l_spin and j_spin == k_spin:
-                        row_idx = int(j_orb * n_se_orbs + i_orb)
-                        col_idx = int(k_orb * n_se_orbs + l_orb)
-                                                
-                        curr_cme = se_cmes[row_idx, col_idx]
-                        
-                        hc_elem += curr_cme * bra_phase * ket_phase
-
-                    # Check that the spins for state pairs (i,k) and (j,l) 
-                    # match
-                    if i_spin == k_spin and j_spin == l_spin:
-                        row_idx = int(j_orb * n_se_orbs + i_orb)
-                        col_idx = int(l_orb * n_se_orbs + k_orb)
-                        
-                        curr_cme = se_cmes[row_idx, col_idx]
-                        
-                        hc_elem -= curr_cme * bra_phase * ket_phase
-                
-    return hc_elem
+#     right_mask[:, c_l, c_k] = (fock_so_basis[:, c_l] & fock_so_basis[:, c_k]
+#                                 & np.invert(np.eye(n_so,dtype=bool))
+#                                 )
     
+#     right_mask = sparse.csr_matrix( 
+#                                 right_mask.reshape((basis_size, (n_so) ** 2 )))
+
+#     # the conjugate "left mask" for (a_j a_i)^\dag is the same
+#     applicabiblity_mask = sparse.kron(right_mask, right_mask)
+
+
+
 if __name__ == "__main__":
-    
-    build_second_quant_ham(3, [0, 1], 4, [15.5, 16.5, 17.5, 18.5])
-        
-        
-        
-        
-        
+    n_elec=3
+    n_se_orbs=10
+    spin_subspace=[0.5]
 
-        
-        
-        
-        
-        
-        
-        
-        
-        
+    ff, ff_bool = build_fock_basis(n_elec, n_se_orbs, spin_subspace)
+    #print('Fock space:\n', ff)
+    print('Fock space byte size:\n', getsizeof(ff), 
+                '\nNumber of basis vectors:\n', ff.shape[0])        
+    
+    # masks = (single_annihilation_mask(braket_idx, ff, n_se_orbs) 
+    #            for braket_idx in tqdm(range((ff.shape[0])**2)) )
+
+    # timer = time.time()
+    # print('Beginning stacking the matrices')
+    # stacked_mm = sparse.vstack(masks,format='bsr', dtype=bool)
+    # print('Time to stack masks:', time.time()-timer) 
+    # # print('stacked mask',   stacked_mm)
+    # print('stacked mask data size', stacked_mm.data.shape[0])
+
+    mm = annihilation_mask(ff, ff_bool)
+    print("mask data size: ", mm.data.nbytes, '\n mask\n', mm,) #mm.nonzero()
+   
+    # print('Unequal elements:',  (mm != stacked_mm).nnz )
+    
+    
+
+    
+
+
+
+            
+
+
+
+
+
+
+    
         
         
         

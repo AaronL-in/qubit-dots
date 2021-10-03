@@ -388,7 +388,7 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     print(f'Elapsed time is {transform_time} seconds.\n')
     
     #************************************#
-    # Build 2nd quantization hamiltonian #
+    # Build 2nd quantization Hamiltonian #
     #************************************#
     
     build2nd_time = time.time()
@@ -396,8 +396,14 @@ def solve_many_elec_SE(gparams, n_elec, n_xy_ho, n_se=7, n_sols=4,
     
     # Build the 2nd quantization Hamiltonian and then diagonalize it to
     # obtain the egienvectors and eigenenergies of the many electron system.
-    ham_2q = ex.build_second_quant_ham(n_elec, spin_subspace, n_se, lcho_ens,
+    #ham_2q = ex.build_second_quant_ham(n_elec, spin_subspace, n_se, lcho_ens,
+              #                         se_cmes)
+    
+    ham_2q = ex.build_sq_ham(n_elec, spin_subspace, n_se, lcho_ens,
                                        se_cmes)
+
+    print('The 2nd quantization Hamiltonian matrix is\n', ham_2q[:10,:10],
+    f'\nand is {ham_2q.shape} dimensional:'  )
     
     build2nd_time = time.time() - build2nd_time
     print('Done!\n')
