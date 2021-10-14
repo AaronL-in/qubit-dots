@@ -10,3 +10,6 @@ __pycache__/
 *.csv
 tutorials/test_2.py
 .vscode/
+qdp.code-workspace
+qudipy/.vscode
+*.json
