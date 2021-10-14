@@ -1,5 +1,6 @@
 """
-Functions for loading data from files.
+Functions for loading data, either from files or analytically defining
+them.
 
 @author: simba
 """
@@ -11,30 +12,33 @@ from scipy.interpolate import interp2d
 from itertools import product
 
 import qudipy as qd
-from qudipy.potential.potentialinterpolator import PotentialInterpolator
+from qudipy.potential import GridParameters
+from qudipy.potential.potential_interpolator import PotentialInterpolator
         
 def build_interpolator(load_data_dict, constants=qd.Constants(), 
                        y_slice=None):
     '''
-    This function constructs an interpolator object for either a group of 
-    potential or electric field files.
+    This function constructs an interpolator object for either a group
+    of potential or electric field files.
+    
     Parameters
     ----------
-    all_data_sep : dict
-        Dictionary containing the x and y coordinates for the loaded files,
-        the potential data for each loaded file, and the corresponding votlage
-        vector for each file.
+    load_data_dict: dict
+        Dictionary containing the x and y coordinates for the loaded 
+        files, the potential data for each loaded file, and the 
+        corresponding votlage vector for each file.
         Fields = ['coords', 'potentials', 'ctrl_vals']
         
     Keyword Arguments
     ----------
     constants : Constants object, optional
-        Constants object containing material parameter details. The default is
-        a Constants object assuming air as the material system.
+        Constants object containing material parameter details. The
+        default is a Constants object assuming air as the material 
+        system.
     y_slice : float, optional
-        Used to create a interpolator of only 1D poetentials. Specify a slice 
-        along the y-axis at which to take the 1D potential when constructing
-        the interpolator. Units should be specified in [m]. 
+        Used to create a interpolator of only 1D poetentials. Specify a
+        slice along the y-axis at which to take the 1D potential when
+        constructing the interpolator. Units should be specified in [m]. 
         The default is None.
     
     Returns
@@ -105,11 +109,12 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
 def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None, 
                     f_pot_units='J', f_dis_units='m', trim_x=None, trim_y=None):
     '''
-    This function loads many potential files specified by all combinations of 
-    the control values given in ctrl_vals and the control names given in
-    ctrl_names. The potential files MUST be 2D potential slices (if you have
-    3D nextnano simulations, you must preprocess them first). Potential files
-    are assumed to follow the syntax: 
+    This function loads many potential files specified by all 
+    combinations of  the control values given in ctrl_vals and the
+    control names given in ctrl_names. The potential files MUST be 2D
+    potential slices (if you have 3D nextnano simulations, you must 
+    preprocess them first). Potential files are assumed to follow the
+    syntax:
     'TYPE_C1NAME_C1VAL_C2NAME_C2VAL_..._CNNAME_CNVAL.txt'
     where TYPE = 'Uxy' or 'Ez'. 
     Refer to tutorial for a more explicit example.
@@ -117,53 +122,54 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     Parameters
     ----------
     ctrl_vals : list of list of floats
-        List of relevant control values for the files to load.  The first list
-        index corresponds to the ith control variable and the second list
-        index correspond to the ith value for that control variable.
+        List of relevant control values for the files to load.  The 
+        first list index corresponds to the ith control variable and the
+        second list index correspond to the ith value for that control 
+        variable.
     ctrl_names : list of strings
-        List of each ctrl variable name. Must be the same length as ctrl_vals 
-        first dimension.
+        List of each ctrl variable name. Must be the same length as 
+        ctrl_vals first dimension.
         
     Keyword Arguments
     -----------------
     f_type : string, optional
-        Type of file to load (either potential or electric field). Acceptable 
-        arguments include ['pot','potential','Uxy','electric','field','Ez'].
-        Default is potential. The default is 'pot'
+        Type of file to load (either potential or electric field). 
+        Acceptable arguments include 
+        ['pot','potential','Uxy', 'electric','field','Ez']. The default
+        is 'pot' (potential).
     f_dir : string, optional
-        Path to find files specified in f_list. The default is is the current
-        working directory.
+        Path to find files specified by ctrl_vals and ctrl_names. The 
+        default is the current working directory.
     f_pot_units : string, optional
-        Units of the potential in the files to load. Units from file will be
-        converted to J.
-        Supported inputs are 'J' and 'eV'.
+        Units of the potential in the files to load. Units from file 
+        will be converted to J. Supported inputs are 'J' and 'eV'.
     f_dis_units : string, optional
-        Units of the x and y coordinates in the files to load. Units from file
-        will be converted to m. 
+        Units of the x and y coordinates in the files to load. Units
+        from file will be converted to m. 
         Supported inputs are 'm' and 'nm'. 
     trim_x : list of floats, optional
-        Specify min and max bounds of x-axis in [m] to save when loading the 
-        files. Data points outside this window will be trimmed and not saved 
-        in the loaded files. The default is None.
+        Specify min and max bounds of x-axis in [m] to save when 
+        loading the files. Data points outside this window will be 
+        trimmed and not saved in the loaded files. The default is 
+        None.
     trim_y : list of floats, optional
-        Specify min and max bounds of y-axis in [m] to save when loading the 
-        files. Data points outside this window will be trimmed and not saved 
-        in the loaded files. The default is None.
+        Specify min and max bounds of y-axis in [m] to save when
+        loading the files. Data points outside this window will be
+        trimmed and not saved in the loaded files. The default is None.
     
     Returns
     -------
     all_files : dict
-        Dictionary containing the x and y coordinates for the loaded files,
-        the potential data for each loaded file, and the corresponding votlage
-        vector for each file.
+        Dictionary containing the x and y coordinates for the loaded 
+        files, the potential data for each loaded file, and the 
+        corresponding votlage vector for each file.
         Fields = ['coords', 'potentials', 'ctrl_vals']
     '''
 
     # Check inputs
     if len(ctrl_vals) != len(ctrl_names):
-        raise ValueError('Incorrect number of control names given, must be ' +
-                         'equal to first dimension of ctrl_vals ' +
-                         f' {len(ctrl_vals)}.')
+        raise ValueError('Incorrect number of control names given, must be equal to first' 
+                        + ' dimension of ctrl_vals ' + f' {len(ctrl_vals)}.')
     
     # Check if dir was given
     if f_dir is None:
@@ -224,8 +230,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             
             # Get new coordinate points by rounding number of coordinates 
             # points to a power of 2 for both x and y (for faster ffts).
-            new_x_len = 1 if len(new_x) == 0 else 2**(len(new_x) - 1).bit_length()
-            new_y_len = 1 if len(new_y) == 0 else 2**(len(new_y) - 1).bit_length()
+            new_x_len = 2**(len(new_x) - 1).bit_length() if new_x.any() else 1
+            new_y_len = 2**(len(new_y) - 1).bit_length() if new_y.any() else 1
             new_x = np.linspace(new_x.min(), new_x.max(), new_x_len)
             new_y = np.linspace(new_y.min(), new_y.max(), new_y_len)
             
@@ -247,3 +253,59 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     
     
     return all_files
+
+def analytical_potential(ctrl_vals, ctrl_names, function, x_range, y_range):
+    '''
+    Allows one to create an analytical potential in the xy-plane from a
+    function
+
+    Parameters
+    ----------
+    ctrl_vals : list of list of floats
+        List of relevant control values used to define the potential.
+        The first list index corresponds to the ith control variable 
+        and the second list index correspond to the ith value for that 
+        control variable.
+    ctrl_names : list of strings
+        List of each ctrl variable name. Must be the same length as
+        ctrl_vals first dimension.
+    function : callable
+        Function which defines the 2D potential you wish to map out. 
+        Function must take the list ctrl_vals as the first argument
+        and a GridParameters object as the second argument. Refer to
+        tutorial for an explicit example
+    x_range : 1D List or Numpy array
+        grid points along x where you want to potential to be calculated
+    y_range : 1D List or Numpy array
+        grid points along y where you want to potential to be calculated
+
+    Returns
+    -------
+    analytical_potential : dictionary
+        Dictionary containing the x and y coordinates, the potential at
+        each coordinate point, and the control variable vector and control
+        variable name.
+    '''
+
+    # From the x and y ranges provided, create the GridParameters
+    gparams = GridParameters(x_range, y_range)
+
+    # Go over all products of control values and calculate potential
+    cval_array = []
+    pots_array = []
+    for curr_cvals in product(*ctrl_vals):
+        pots_array.append(function(curr_cvals, gparams))
+        cval_array.append(list(curr_cvals))
+
+    # Create named tuple for coordinates
+    Coordinates = namedtuple('Coordinates',['x','y'])
+
+    # Load everything into a dictionary that is returned
+    analytic_potential = {}
+    analytic_potential['coords'] = Coordinates(x_range, y_range)
+    analytic_potential['ctrl_vals'] = cval_array
+    analytic_potential['ctrl_names'] = ctrl_names
+    analytic_potential['potentials'] = pots_array
+
+    return analytic_potential
+    

@@ -62,12 +62,12 @@ def rot_square(qubits, N, axis, theta, B_0, B_rf, f_rf=None,
     """
     if f_rf is None:
         f_rf = 2* consts.muB * B_0 / consts.hbar 
-    if axis == "X" or axis == "Y":
+    if axis in ("X", "Y"):
         phis = np.full(num_val, 0.)
         if axis == "Y":
-            phis = np.full(num_val, math.pi / 2)
+            phis = np.full(num_val, 90)
         if theta < 0:
-            phis = phis + math.pi
+            phis = phis + 180
         bs = np.full(num_val, B_rf)
         
         pulse_length = abs((theta * math.pi / 180) * 
@@ -92,9 +92,9 @@ def rot_square(qubits, N, axis, theta, B_0, B_rf, f_rf=None,
         elif ifint:
             set_qubits = {qubits}
         else:
-            raise ValueError("The tracked qubits should be specified"  
-                             "by an int or an iterable of ints. None of the"  
-                                 "qubits have been detuned to idle")
+            raise ValueError("The tracked qubits should be specified " +  
+                             "by an int or an iterable of ints. None of the " +  
+                             "qubits have been detuned to idle")
         
         # tuning the target qubit(s) on resonance, the variables are named in 
         # compliance with the write-up
@@ -132,16 +132,15 @@ def rot_square(qubits, N, axis, theta, B_0, B_rf, f_rf=None,
                 
         return rotpulse
         #del rotpulse
-    elif axis=="Z":
+    if axis=="Z":
         return [rot_square(qubits, N, "X", -90, B_0, B_rf, 
                                                    f_rf, delta_g, num_val), 
                 rot_square(qubits, N, "Y", theta, B_0, B_rf,
                                                    f_rf, delta_g, num_val), 
                 rot_square(qubits, N, "X", 90, B_0, B_rf, 
                                                    f_rf, delta_g, num_val)]
-    else:
-        raise ValueError("Incorrect input of axis, please try again")
-        return 0
+    raise ValueError("Incorrect input of axis, please try again")
+    
     
 def swap(qubits, N, J, B_0=0, f_rf=None, num_val=300):
     """
@@ -235,7 +234,7 @@ def rswap(qubits, N, J, B_0=0, f_rf=None, num_val=300):
                          "qubits is supported")
     qubit = min(qubits)    
     Js = np.full(num_val, J)
-    rswappulse = ControlPulse("SWAP_{}_{}".format(qubit, qubit + 1), 
+    rswappulse = ControlPulse("RSWAP_{}_{}".format(qubit, qubit + 1), 
                                 "effective", pulse_length = consts.h / (4 * J)) 
     rswappulse.add_control_variable("J_{}".format(qubit), Js)
     
