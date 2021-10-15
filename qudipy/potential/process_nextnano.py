@@ -233,7 +233,6 @@ def retrieve_ctrl_vals(nextnano_data):
         voltages.append(gate)
     return voltages
 
-
 def reshape_potential(potential, x, y, z, slice, f_type):
     '''
     This function reshapes the 1d array of potential data according to the
@@ -341,8 +340,7 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
         # insert x,y, and potential 2D slice into array
         coords_and_pot[0,1:] = i[2][1]
         coords_and_pot[1:,0] = i[2][0]
-        # coords_and_pot[1:,1:] = potential2D
-        coords_and_pot[1:,1:] = -1*potential2D # delete
+        coords_and_pot[1:,1:] = -1*potential2D 
 
         # transpose array to make the y-axis data run row wise and x-axis data
         # run column wise.
@@ -368,7 +366,7 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
         except:
             file_trig = -1
         
-    return file_trig
+    return file_trig, coords_and_pot
 
 def write_data(input_dir_path,output_dir_path,slice,f_type):
     '''
@@ -393,7 +391,7 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
     ----------
     f_type: List
         Field type identifier either ['field', 'electric', 'Ez']  or 
-        ['pot', 'potential', 'Uxy' ]where case is not relevant.
+        ['pot', 'potential', 'Uxy' ] where case is not relevant.
     
     Returns
     -------
@@ -405,25 +403,31 @@ def write_data(input_dir_path,output_dir_path,slice,f_type):
 
     for subdir, _, _ in os.walk(input_dir_path):
 
-        # parse voltage information for the directory one level higher than /output
+        # parse voltage information for the directory one level higher 
+        # than /output
         if subdir != input_dir_path and subdir[-6:] == 'output':
             gates = parse_ctrl_items(subdir,'name')
             break
 
-            
     # output_dir_path = output_dir_path + '_slice_{}'.format(slice)
     output_dir_path = output_dir_path + '_for_slice_{:.3e}'.format(slice)
-        
-    
+
     # write xy potential files
     for i in f_type:
+        
         # try to write xy potential text files
-        try:
-            print('Converting 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
-            xy_potential(potential, gates, slice, i,output_dir_path)
-            file_trig = 0
-        except:
-            print('FAILED to convert 3D nextnano simulation data too 2D XY-plane \033[1;31;40m {} \033[0m data along slice for z = {}.'.format(i,slice))
-            file_trig = -1
+        file_trig, coords_and_pot = xy_potential(potential,gates,slice,i
+            ,output_dir_path)
 
-    return file_trig
+        # indicate to user that the file failed/succeeded writting the data
+        # to a text file
+        if file_trig == 0:
+            print('Converting 3D nextnano simulation data too 2D XY-plane ' 
+                + '\033[1;31;40m {} \033[0m data ' 
+                + 'along slice for z = {}.'.format(i,slice))    
+        elif file_trig == -1:
+            print('FAILED to convert 3D nextnano simulation data too 2D '  
+                + 'XY-plane \033[1;31;40m {} \033[0m data along slice for ' 
+                + 'z = {}.'.format(i,slice))
+        
+    return file_trig, coords_and_pot

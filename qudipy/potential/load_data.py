@@ -184,14 +184,16 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # First figure out type of file to load (electric or potential)
         if f_type.lower() in ['pot', 'potential', 'uxy']:
             f_name = 'Uxy'
+            f_type_name = 'potentials'
         elif f_type.lower() in ['field', 'electric', 'ez']:
             f_name = 'Ez'
+            f_type_name = 'electric'
             
         for name, val in zip(ctrl_names, curr_cvals):
             f_name = f_name+ '_' + name + '_' + "{:.3f}".format(val)
         
         f_name += '.txt'
-        
+    
         # After file name is constructed, load the data from file into a larger
         # list containing information about all the loaded files.
 
@@ -250,7 +252,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         
     all_files['ctrl_vals'] = cval_array
     all_files['ctrl_names'] = ctrl_names
-    all_files['potentials'] = pots_array
+    all_files[f_type_name] = pots_array
     
     
     return all_files
