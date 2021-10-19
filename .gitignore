@@ -9,4 +9,4 @@ __pycache__
 tutorials/test_2.py
 .vscode
 *.json
-*.code_workspace
+*.code-workspace
