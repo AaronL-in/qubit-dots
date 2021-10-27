@@ -190,7 +190,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             f_type_name = 'electric'
             
         for name, val in zip(ctrl_names, curr_cvals):
-            f_name = f_name+ '_' + name + '_' + "{:.3f}".format(val)
+
+            f_name = f_name + '_' + name + '_' + "{:.3f}".format(val)
         
         f_name += '.txt'
     
