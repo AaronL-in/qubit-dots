@@ -392,7 +392,7 @@ class PotentialInterpolator:
                                )
                 fig.colorbar(img, ax=ax,location='right', shrink=0.7)
                 ax.set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
-                       title='2D potential')
+                       title='2D profile')
             # Overlay wavefunction if desired
             else:
                 fig, ax = plt.subplots(1,2,figsize=(12,8))
@@ -405,7 +405,7 @@ class PotentialInterpolator:
                                )
                 fig.colorbar(im0, ax=ax[0],location='right', shrink=0.7)
                 ax[0].set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
-                            title='2D potential')
+                            title='2D profile')
                 
                 # Find the wavefunction probability
                 gparams = GridParameters(self.x_coords, y=self.y_coords, 

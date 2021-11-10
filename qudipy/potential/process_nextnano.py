@@ -286,7 +286,7 @@ def reshape_potential(potential, x, y, z, slice, f_type):
     Parameters
     ----------
     potential: Array
-        Array conaining all of the potential data for the x,y, and z coordinates.
+        Array containing all of the potential data for the x,y, and z coordinates.
 
     x,y,z: List
         Coordinates for the potential data contained in the 1d potential array.
