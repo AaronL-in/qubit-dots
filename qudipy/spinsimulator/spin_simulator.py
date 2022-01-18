@@ -12,7 +12,7 @@ write-up **before** familiarizing yourself with this code:
 
 import numpy as np
 
-from math import pi, log2, exp, sin, cos, inf
+from numpy import pi, log2, exp, sin, cos, inf
 
 import warnings
 import tqdm  #for progress bar
@@ -21,13 +21,16 @@ import qudipy.qutils.matrices as matr
 import qudipy.qutils.math as qmath
 
 from qudipy.circuit import ControlPulse
-from qudipy.utils.constants import Constants 
+
+
+from scipy import constants as consts
+muB = consts.physical_constants[u'Bohr magneton'][0]
+kB = consts.Boltzmann
 
 
 #material system is chosen to be vacuum by default because such parameters as 
 #effective mass or dielectric constant do not matter for spin simulations;
-
-consts = Constants("vacuum")       
+   
 
 #helper functions
 
@@ -55,7 +58,7 @@ def p(B_0, T):
     """
     p_ = 0
     if T > 1e-2:
-        p_ = 1 / (exp (2 * consts.muB * B_0 / (consts.kB * T)) + 1)
+        p_ = 1 / (exp (2 * muB * B_0 / (kB * T)) + 1)
     return p_
 
     
@@ -106,10 +109,10 @@ def x_sum(N):
     -------
     : 2D complex array
         Sum of X_k-matrices for all k in [1,N] weighted by
-        consts.muB/consts.hbar .
+        muB/consts.hbar .
 
     """
-    return consts.muB / consts.hbar * sum(matr.x(N, k) for k in range(1, N+1))
+    return muB / consts.hbar * sum(matr.x(N, k) for k in range(1, N+1))
 
 
 def y_sum(N):
@@ -130,10 +133,10 @@ def y_sum(N):
     -------
     : 2D complex array
         Sum of Y_k-matrices for all k in[1,N] weighted 
-        by consts.muB / consts.hbar.
+        by muB / consts.hbar.
 
     """
-    return consts.muB / consts.hbar * sum(matr.y(N, k) for k in range(1, N+1))
+    return muB / consts.hbar * sum(matr.y(N, k) for k in range(1, N+1))
 
 
 def z_sum_omega(N, B_0, f_rf):
@@ -162,7 +165,7 @@ def z_sum_omega(N, B_0, f_rf):
         weighted by i(omega - omega_rf)/2.
 
     """
-    return ((consts.muB * B_0 / consts.hbar - pi * f_rf)
+    return ((muB * B_0 / consts.hbar - pi * f_rf)
                 * sum(matr.z(N, k) for k in range(1, N+1)))
 
 
@@ -234,8 +237,8 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
         - "sigma_minuses" - list of matr.sigma_minus_k
         - "J_sigma_products" - (symmetric) matrix of 
             (\frac{1}{4 * \hbar} \vec{sigma_k1} \cdot \vec{sigma_k2})
-        - "x_sum" (multiplied by consts.muB/consts.hbar)
-        - "y_sum" (multiplied by consts.muB/consts.hbar)
+        - "x_sum" (multiplied by muB/consts.hbar)
+        - "y_sum" (multiplied by muB/consts.hbar)
         - "z_sum_omega"
         - "Z_sum_p"
         The functions that give entries of the dictionaries are defined above. 
@@ -424,7 +427,7 @@ class SpinSys:
         self.T = T
         
         if f_rf is None:
-            self.f_rf = 2 * consts.muB * B_0 / consts.h
+            self.f_rf = 2 * muB * B_0 / consts.h
         else: 
             self.f_rf = f_rf
         
@@ -489,7 +492,7 @@ class SpinSys:
             
             if delta_g != [0] * N:
                 for k in range(N):
-                    ham += (consts.muB * self.B_0 * delta_g[k]
+                    ham += (muB * self.B_0 * delta_g[k]
                                 * const_dict_N["Zs"][k]) / (2 * consts.hbar)
                 
             if J != [0]*(N-1):
