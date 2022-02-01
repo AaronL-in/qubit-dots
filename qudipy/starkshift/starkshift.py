@@ -114,3 +114,36 @@ class StarkShift:
 
 
 
+def deviation_g_factor_Si (self, density, wavefunction = None):
+    '''
+    Calculates the T dependent deviation g-factor for an electron with specified wavefunction
+
+    Parameters:
+    -----------------
+    density: the density of the silicon in kg/m^3
+
+    Keyword Arguments
+    -----------------
+    wavefunction: wavefunction for which the Stark shift should be
+        calculated. If none provided, the potential provided in the gparams
+        will be used in the Schrodinger equation solver and the Stark shift
+        will be calcualted for the ground state (default None)
+
+    Returns
+    -----------------
+    deviation g-factor approximation for the T-dependent correction
+    '''
+    g = 1.99875
+    
+    #define spin deformation potential TODO
+    A = 1 #set arbitrarily as 1
+    
+    #TODO ask Bohdan how to use the wavefunction to find a wavevector from the wavefunction
+    q_0 
+    
+    #TODO ask Bohdan if the omega frequency is supposed to come from the wavefunction
+    omega = 2.2789011*(10**(-22))
+    
+    correction = ((-15 * A**2 * q_0**4)/(np.pi * sp.constants.Planck * density)) * (sp.constants.m_e/(2*sp.constants.Planck*omega))**(3/2)
+    delta_g = correction * g
+    return delta_g
