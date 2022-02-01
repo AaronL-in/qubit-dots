@@ -4,6 +4,7 @@ them.
 
 @author: simba
 """
+import os
 
 import numpy as np
 import pandas as pd
@@ -135,8 +136,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     f_type : string, optional
         Type of file to load (either potential or electric field). Acceptable 
         case insensitive arguments include the strings 
-        ['pot','potential','uxy','electric','field','ez'].
-        Default is potential. The default is 'pot'
+        ['pot','potential','uxy','electric','field','ez'].The default
+        is 'pot' (potential).'
     f_dir : string, optional
         Path to find files specified by ctrl_vals and ctrl_names. The 
         default is the current working directory.
@@ -194,12 +195,41 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             f_name = f_name + '_' + name + '_' + "{:.3f}".format(val)
         
         f_name += '.txt'
+
+
+        # TODO: resolve issue with trying to use os.path.join()
+
+        # print('!!!!!!!!!!!!')
+        # print(f_name)
+        # print(f_dir)
+        # print(type(f_dir+f_name))
+        # print(f_dir+f_name)
+        # print('----------------')
+        # print(f_dir +'\\'+f_name)
+        # print(type(os.path.join(f_dir,f_name)))
+        # print(os.path.join(f_dir,f_name))
+        # print('!!!!!!!!!!!!')
+    
+        # # After file name is constructed, load the data from file into a larger
+        # # list containing information about all the loaded files.
+
+        # # Load file
+        # data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
+
+
+        print('!!!!!!!!!!!!')
+        print(f_name)
+        print(f_dir)
+        print(f_dir+f_name)
+        path_test = os.path.join(f_dir,f_name)
+        print(path_test)
+        print('!!!!!!!!!!!!')
     
         # After file name is constructed, load the data from file into a larger
         # list containing information about all the loaded files.
 
         # Load file
-        data = pd.read_csv(f_dir+f_name, header=None).to_numpy()
+        data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
         
         # Extract items
         x = data[0,1:]
