@@ -45,7 +45,7 @@ def balance_zeeman(delta_g_interp, v_offset, f_rf):
 
 
 
-def rot(axis, theta, n_qubits, active_qubits, 
+def rot(rotation_axis, theta, n_qubits, active_qubits, 
                 delta_g_interp, v_unit_shape, B_0, num_val=100):
     '''
     Chooses the optimal duration for a ROT(\theta) pulse of the specified pulse 
