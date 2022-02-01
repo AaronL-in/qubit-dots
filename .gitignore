@@ -11,7 +11,7 @@ tutorials/output_calls.txt
 tutorials/output_time.txt
 tutorials/QuDiPy tutorial data
 tutorials/qudipy
-test.py
+test*.py
 
 *.pyc
 __pycache__/

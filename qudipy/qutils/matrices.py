@@ -1,8 +1,8 @@
-"""
+'''
 Constant matrices used to define quantum gates
 @author: hromecB, zmerino
-"""
-
+'''
+import os
 import numpy as np
 
 class Unitary:
@@ -17,7 +17,7 @@ class Unitary:
 
     ##### Operator Object Manipulation #####
 
-    def __init__(self, operators={}, filename = ''):
+    def __init__(self, operators=None, filename=None):
         '''
 
         Keyword Arguments
@@ -37,23 +37,44 @@ class Unitary:
         '''
         # Ensure initial operator dictionary only contains unitary items with
         # the correct data structure, then assign to object
-        if bool(operators) == False and filename == '':
-            # Empty dictionary
-            self.operators = operators
-        elif bool(operators) == False and filename != '':
-            # Load dictionary object file with no user defined dictionary
-            self.operators = self.load_ops(filename)
-            self.check_ops(self.operators)
-        elif bool(operators) == True and filename == '':
-            # Use user defined dictionary without existing object file
-            self.check_ops(operators)
-            self.operators = operators
-        elif bool(operators) == True and filename != '':
-            # Use user defined dictionary and append existing object file
-            self.operators = operators
-            loaded_ops = self.load_ops(filename)
-            self.add_operators(loaded_ops)
-            self.check_ops(self.operators)
+        if filename is None:
+            if operators is None:
+                # Empty dictionary
+                self.operators = {}
+            elif operators is not None:
+                # Use user defined dictionary without existing object file
+                self.check_ops(operators)
+                self.operators = operators
+        elif  filename is not None:
+            
+            # Append '.npz' if only the filename with out file type suffix
+            if filename[-4:] != '.npz':
+                filename = f'{filename}.npz'
+
+            if operators is None:
+                # Load dictionary object file with no user defined dictionary
+                self.operators = self.load_ops(filename)
+                self.check_ops(self.operators)
+            elif operators is not None:
+                # Use user defined dictionary and append existing object file
+                self.operators = operators
+                loaded_ops = self.load_ops(filename)
+                self.add_operators(loaded_ops)
+                self.check_ops(self.operators)
+
+        # Default operator dictionary
+        default_ops = {
+                'PAULI_X': np.array([[0, 1], [1, 0]], dtype=complex),
+                'PAULI_Y': np.array([[0,-1.0j], 
+                    [1.0j, 0]],dtype=complex),
+                'PAULI_Z': np.array([[1, 0], [0, -1]], dtype=complex),
+                'PAULI_I': np.array([[1, 0], [0, 1]], dtype=complex)
+            }    
+        
+        # Always have Pauli operators and the identity added. 
+        # NOTE: this will overwrite dictionary values with same key name if 
+        # loading a dictionary from an object file
+        self.add_operators(default_ops)
 
     def check_ops(self, dict):
         '''
@@ -83,26 +104,26 @@ class Unitary:
 
                 # Ndarray is not a square matirx
                 if N != M:
-                    raise ValueError("Operator entry contains a non-sqaure"+
-                        " array of size [{},{}].".format(N,M))
+                    raise ValueError('Operator entry contains a non-sqaure'+
+                        ' array of size [{},{}].'.format(N,M))
 
                 # Create identity operator
                 I = np.eye(N,N,dtype=complex)
 
                 # Check if values are ndarrays
                 if isinstance(val, np.ndarray) == False:
-                    raise ValueError("The data type for item "+
-                        "{} is not an ndarray, but {}.".format(key,type(val)))
+                    raise ValueError('The data type for item '+
+                        '{} is not an ndarray, but {}.'.format(key,type(val)))
                 
                 # Check if array is complex object
                 if np.iscomplexobj(val) == False:
-                    raise ValueError("The object type for item "+
-                        "{} is not complex.".format(key))
+                    raise ValueError('The object type for item '+
+                        '{} is not complex.'.format(key))
 
                 # Check it operator is unitary
                 if (np.array_equal(np.matmul(U,Ustar),I) == False or
                     np.array_equal(np.matmul(Ustar,U),I) == False):
-                    raise ValueError("Operator {} is not unitary.".format(key))
+                    raise ValueError('Operator {} is not unitary.'.format(key))
 
     def save_ops(self, filename):
         '''
@@ -113,16 +134,19 @@ class Unitary:
         Parameters
         ----------
         filename : String
-            Name of the file with extension .npz for the operator object.
+            Name of operator dictionary file. If the file type suffix is not 
+            included in the filename, it will be appended on to the filename
+            string.
 
         Returns
         -------
         None.
 
         '''
-        # save operator object file to working directory
+
+        # Save operator object file to working directory
         np.savez(filename, **self.operators)
-        print("Saved existing dictionary with unitary operators: {}.".format(
+        print('Saved existing dictionary with unitary operators: {}.'.format(
             self.operators.keys()))
         
     def load_ops(self, filename):
@@ -144,8 +168,11 @@ class Unitary:
         # Load filename data object and convert to dictionary
         ops = dict(np.load(filename))
 
-        print("Loaded existing dictionary with unitary operators: {}.".format(
+        print('Loaded existing dictionary with unitary operators: {}.'.format(
             ops.keys()))
+
+
+
         return ops
 
     def add_operators(self, new_ops):
@@ -163,7 +190,7 @@ class Unitary:
         None.
 
         '''
-        print("Adding unitary operators: {}.".format(new_ops.keys()))
+        print('Adding unitary operators: {}.'.format(new_ops.keys()))
         # Check the new operators
         self.check_ops(new_ops)
         # Merge existing dictionary with dictionary of new unitary operators
@@ -185,7 +212,7 @@ class Unitary:
         None.
 
         '''
-        print("Removing unitary operators: {}.".format(op_names))
+        print('Removing unitary operators: {}.'.format(op_names))
         for name in op_names:
             self.operators.pop(name)
     
@@ -222,9 +249,9 @@ class Unitary:
 
     ##### Hard Coded Operators #####
 
-    # Ladder operatorss X_k ± i Y_k
-    def sigma_plus(self,N, k):
-        """
+    # Ladder operators X_k ± i Y_k
+    def sigma_plus(self, N, k):
+        '''
         Defines a raising operators of the k-th qubit
         Parameters
         ----------
@@ -236,12 +263,12 @@ class Unitary:
         -------
         : complex 2D array
             The raising operators X_k + i Y_k
-        """
+        '''
         return (self.construct(N,k,self.operators['PAULI_X']) 
-            + complex(0.0, 1.0) * self.construct(N,k,self.operators['PAULI_Y']))
+            + 1.0j * self.construct(N,k,self.operators['PAULI_Y']))
 
-    def sigma_minus(self,N, k):
-        """
+    def sigma_minus(self, N, k):
+        '''
         Defines a lowering operators of the k-th qubit
         Parameters
         ----------
@@ -253,13 +280,13 @@ class Unitary:
         -------
         : complex 2D array
             The lowering operators X_k - i Y_k
-        """
+        '''
         return (self.construct(N,k,self.operators['PAULI_X']) 
-            - complex(0.0, 1.0) * self.construct(N,k,self.operators['PAULI_Y']))
+            - 1.0j * self.construct(N,k,self.operators['PAULI_Y']))
         
     def e_up(self,N, k):
-        """
-        Defines matrix that projects k-th qubit on the state |0〉
+        '''
+        Defines matrix that projects k-th qubit on the state |↑〉≡ |0〉
         
         Parameters
         ----------
@@ -276,12 +303,12 @@ class Unitary:
         -------
         : 2D complex array
             Matrix |0〉〈0|_k of dimensions 2**N x 2**N 
-        """
+        '''
         return 0.5 * (self.unit(N) + self.construct(N,k,self.operators['PAULI_Z']))
 
     def e_down(self,N, k):
-        """
-        Defines matrix that projects k-th qubit on the state |1〉
+        '''
+        Defines matrix that projects k-th qubit on the state |↓〉≡ |1〉
         
         Parameters
         ----------
@@ -298,11 +325,11 @@ class Unitary:
         -------
         : 2D complex array
             Matrix |1〉〈1|_k of dimensions 2**N x 2**N 
-        """
+        '''
         return 0.5 * (self.unit(N) - self.construct(N,k,self.operators['PAULI_Z']))
 
     def unit(N):
-        """
+        '''
         Defines unit matrix of dimensions 2**N x 2**N
         
         Parameters
@@ -318,12 +345,12 @@ class Unitary:
         -------
         : 2D complex array
         Unit matrix of dimensions 2**N x 2**N
-        """
+        '''
         
         return np.eye((2 ** N), (2 ** N), dtype=complex)
 
     def cnot(self,N, ctrl, trgt):
-        """
+        '''
         Defines a matrix for CNOT gate.
         
         Parameters
@@ -342,12 +369,12 @@ class Unitary:
         -------
         : 2D complex array
             Matrix for CNOT gate
-        """
+        '''
         return (self.e_up(N, ctrl) + self.e_down(N, ctrl) 
             @ self.construct(N,trgt,self.operators['PAULI_X']))
 
     def swap(self,N, k1, k2):
-        """
+        '''
         Defines SWAP gate matrix for the qubits with the indices k1, k2.
         
         Parameters
@@ -363,11 +390,11 @@ class Unitary:
         -------
         : 2D complex array
             Matrix for SWAP gate 
-        """
+        '''
         return self.cnot(N, k1, k2) @ self.cnot(N, k2, k1) @ self.cnot(N, k1, k2)
 
     def sigma_product(self,N, k1, k2):
-        """
+        '''
         Defines the dot product of two Pauli vectors.
         
         Parameters
@@ -383,7 +410,7 @@ class Unitary:
         -------
         : 2D complex array
             The inner product \vec{sigma_k1} \cdot \vec{sigma_k2}
-        """
+        '''
 
         return (self.construct(N, k1,self.operators['PAULI_X']) 
             @ self.construct(N, k2,self.operators['PAULI_X']) 
@@ -394,7 +421,7 @@ class Unitary:
 
     def rswap(self,N, k1, k2):
     
-        """
+        '''
         Defines sqrt(SWAP) gate matrix for the qubits with the indices k1, k2.
         
         Parameters
@@ -410,7 +437,7 @@ class Unitary:
         -------
         : 2D complex array
             Matrix for SWAP gate 
-        """
+        '''
         return (complex(0.25, -0.25) * self.sigma_product(N, k1, k2) 
             + complex(1.5, 0.5) * self.unit(N))
 
