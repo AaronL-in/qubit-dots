@@ -44,13 +44,8 @@ class StarkShift:
         T_new: Float
             Requires - T_new >= 0
         '''
-        gparams  = self.gparams
-        consts = self.consts
-        
-        def __innit__(self, gparams, consts, temp):
-            self.gparams = gparams 
-            self.consts = consts
-            self.temp = T_new
+        self.__init__(self.gparams, self.consts, T_new)
+
 
 
 
@@ -141,13 +136,12 @@ class StarkShift:
 
 
 
-    def Temp_g_factor (self, T, material=None):  
+    def temp_g_factor (self, material=None):  
         '''
         Returns the T dependent deviation g-factor for an electron via linear interpolation
 
         Parameters:
         -----------------
-        T: Temperature in Kelvins 
 
         Keyword Arguments:
         -----------------
@@ -160,9 +154,9 @@ class StarkShift:
         -----------------
         Temperature deviation g-factor approximation
         '''
+        T = self.temp
+
         if material in ['Si', 'silicon', 'Silicon', None]:
-        
-            T = self.temp
         
             ## make lists of points to interpolate over
             t = [0,30,50,70,100,150,200,250] #make list of temperature points
@@ -173,15 +167,13 @@ class StarkShift:
             if T >= 250:
                 i = 6
             else:
-                while i == None:
-                    for temperature in t:
-                        if T < temperature:
+                for temperature in t:
+                    if T < temperature:
+                        while i == None:
                             i = t.index(temperature) - 1
-                        else:
-                            i = None
         
             ## linearly interpolate and return the g-factor value 
-            dt= (t[i]-t[i+1]) #
+            dt= (t[i]-t[i+1]) 
             interp = (g[i] - g[i+1])/dt * T + (t[i]*g[i+1] - t[i+1]*g[i])/dt #linear interpolation 
         
             return interp
@@ -192,3 +184,4 @@ class StarkShift:
 
 
 
+            
