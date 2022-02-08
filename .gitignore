@@ -9,7 +9,6 @@ tutorials/test.py
 tutorials/output.dat
 tutorials/output_calls.txt
 tutorials/output_time.txt
-tutorials/QuDiPy tutorial data
 tutorials/qudipy
 test*.py
 
@@ -17,24 +16,3 @@ test*.py
 __pycache__/
 *.csv
 
-# Use code structure below for basic code profiling of test.py
-
-# def main():
-#     # TEST.PY CODE
-
-# main()
-
-# if __name__ == "__main__":
-#     import cProfile
-#     cProfile.run('main()', "output.dat")
-
-#     import pstats
-#     from pstats import SortKey
-
-#     with open("output_time.txt", "w") as f:
-#         p = pstats.Stats("output.dat", stream=f)
-#         p.sort_stats("time").print_stats()     
-        
-#     with open("output_calls.txt", "w") as f:
-#         p = pstats.Stats("output.dat", stream=f)
-#         p.sort_stats("calls").print_stats() 
