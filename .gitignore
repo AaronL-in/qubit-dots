@@ -10,7 +10,7 @@ tutorials/output.dat
 tutorials/output_calls.txt
 tutorials/output_time.txt
 tutorials/qudipy
-test*.py
+test_buddy*.py
 
 *.pyc
 __pycache__/
