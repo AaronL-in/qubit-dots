@@ -90,6 +90,10 @@ class Operator:
         # unitary and updated the is_unitary attribute.
         self.is_unitary = self.check_unitary(self.lib)
 
+    # __getitem__ overrides the [] operator for the class
+    def __getitem__(self, key):
+        return self.lib[key]
+
     def check_unitary(self, dict):
         '''
         
@@ -490,6 +494,7 @@ class Operator:
         return self.cnot(N, k1, k2) @ self.cnot(N, k2, k1) @ self.cnot(N, k1, k2)
 
     def sigma_product(self,N, k1, k2):
+        
         '''
         Defines the dot product of two Pauli vectors.
         
