@@ -52,7 +52,7 @@ original_dir = os.path.dirname(os.getcwd())
 print(original_dir)
 
 # This will be used to access a tutorial unitary object file
-op_data_dir = os.path.join(original_dir,'unit tests','qutils_test')
+op_data_dir = os.path.join(original_dir,'unit_tests','qutils_test')
 
 print(op_data_dir)
 

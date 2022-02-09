@@ -90,9 +90,21 @@ class Operator:
         # unitary and updated the is_unitary attribute.
         self.is_unitary = self.check_unitary(self.lib)
 
-    # __getitem__ overrides the [] operator for the class
+    # Overrides the [] operator for the class
     def __getitem__(self, key):
         return self.lib[key]
+
+    # For addeding operator libraries to existing library       
+    def __setitem__(self, lib):
+        self.add_operators(lib)
+        
+    # For removing operator libraries from existing library    
+    def __delitem__(self, op_names):
+        self.remove_operators[op_names]
+
+    # Create key method
+    def keys(self):
+        return self.lib.keys()
 
     def check_unitary(self, dict):
         '''
@@ -178,9 +190,9 @@ class Operator:
 
                     # Try to convert to ndarray
                     try:
-
-                        print('Data type of {} is not ndarray, but is: {}.'.format(key,type(val)))
-                        # val = np.asarray(val, dtype=np.float32)
+                        
+                        print('Note: Data type of {} is not ndarray, but is: {}.'.format(key,type(val)))
+                        
                         val = np.asarray(val)
                     except:
                         raise ValueError('Failed to convert {} to ndarray.'.format(key))
@@ -191,7 +203,7 @@ class Operator:
                     # Try to convert to complex object
                     try:
 
-                        print('Data type of first element for {} is not complex, but is: {}.'.format(key,type(val[0][0])))
+                        print('Note: Data type of first element for {} is not complex, but is: {}.'.format(key,type(val[0][0])))
                         val = val.astype(complex)
                     except:
                         raise ValueError('Failed to convert {} complex data type.'.format(key))
@@ -220,7 +232,7 @@ class Operator:
         print('Saved existing dictionary with operators: {}.'.format(
             self.lib.keys()))
         
-    def load_ops(self, filename, f_type=None):
+    def load_ops(self, filename, f_type=None, disp=None):
         '''
         
         Load the operator object file for later use.
@@ -239,15 +251,15 @@ class Operator:
 
         # Load filename data object and convert to dictionary
         lib = dict(np.load(filename))
-
-        print('Loaded existing dictionary with operators: {}.'.format(
-            lib.keys()))
+        if disp is True:
+            print('Loaded existing dictionary with operators: {}.'.format(
+                lib.keys()))
 
 
 
         return lib
 
-    def add_operators(self, new_ops):
+    def add_operators(self, new_ops, disp=None):
         '''
         
         Add operator dictionary to an existing operator dictionary.
@@ -262,7 +274,8 @@ class Operator:
         None.
 
         '''
-        print('Adding operators: {}.'.format(new_ops.keys()))
+        if disp is True:
+            print('Adding operators: {}.'.format(new_ops.keys()))
 
         # Check the new operators
         self.check_ops(new_ops)
@@ -274,7 +287,7 @@ class Operator:
         # Merge existing dictionary with dictionary of new operators
         self.lib = {**self.lib, **new_ops}
 
-    def remove_operators(self, op_names):
+    def remove_operators(self, op_names, disp=None):
         '''
         
         Remove operator items from existing operator dictionary.
@@ -290,7 +303,9 @@ class Operator:
         None.
 
         '''
-        print('Removing unitary operators: {}.'.format(op_names))
+        if disp is True:
+            print('Removing unitary operators: {}.'.format(op_names))
+
         for name in op_names:
             self.lib.pop(name)
 
@@ -333,23 +348,47 @@ class Operator:
             
             op_key = '{}_N{}K{}'.format(key_prefix,N,k)
             
-            # construct dictionary item for operator
-            operator_def = {
-                    op_key: u_k
-            }
-            
-            # Add operator to loaded dictionary
-            self.add_operators(operator_def)
-            # # Save to operator library object
-            self.save_ops(self.filename)
+            # Prevent duplicate operator entries
+            if op_key not in self.lib:
+
+                # construct dictionary item for operator
+                operator_def = {
+                        op_key: u_k
+                }
+                
+                # Add operator to loaded dictionary
+                self.add_operators(operator_def)
+                # Save to operator library object
+                self.save_ops(self.filename)
 
         return u_k
+
+    # Use function to check if specific operator key name exists
+    def op_exist(self, **kwargs):
+
+        # Retrive method name of caller method
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+
+        # Dictionary used to switch operator key naming convention
+        name_style = {1: '{}_N{}K{}'.format(calframe[1][3], kwargs['N'], kwargs['k'])}
+        
+        # Operator key name 
+        op_key  = name_style[kwargs['case']]
+
+        print(op_key)
+        
+        # Prevent duplicate operator entries
+        if op_key in self.lib:
+            return True, op_key, self.lib[op_key]
+        else:
+            return False, op_key
 
 
     ##### Hard Coded Operators #####
 
     # Ladder operators X_k ± i Y_k
-    def sigma_plus(self, N, k):
+    def sigma_plus(self, N, k, save=None):
         '''
         Defines a raising operator of the k-th qubit
         Parameters
@@ -364,8 +403,42 @@ class Operator:
             The raising operators X_k + i Y_k
         '''
 
-        return (self.construct(N,k,self.lib['PAULI_X']) 
-            + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
+        # Search for operator with defined file name convention
+        op_exist, op_name = self.op_exist(N=N, k=k, case=1)
+
+        # If operator doesn's exist, save it if specified. If the operator does
+        # exist then retrieve it from library
+        if op_exist is False:
+            if save is True:
+                # Compute operator
+                u_k = (self.construct(N,k,self.lib['PAULI_X']) 
+                    + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
+                    
+                # Construct dictionary item for operator
+                operator_def = {
+                        op_name: u_k
+                }
+                
+                # Add operator to loaded dictionary
+                self.add_operators(operator_def)
+                # Save to operator library object
+                self.save_ops(self.filename)
+
+                return u_k
+            else:
+                # Retrieve operator
+                return self.lib[op_name]
+        else:
+            if op_exist is False:
+                # Compute operator
+                u_k = (self.construct(N,k,self.lib['PAULI_X']) 
+                        + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
+                   
+                return u_k
+            else:
+                # Retrieve operator
+                return self.lib[op_name]
+
 
     def sigma_minus(self, N, k):
         '''
@@ -381,6 +454,11 @@ class Operator:
         : complex 2D array
             The lowering operators X_k - i Y_k
         '''
+
+
+        print(self.op_exist(N=N, k=k, case=1))
+
+
         return (self.construct(N,k,self.lib['PAULI_X']) 
             - 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
         
@@ -489,7 +567,7 @@ class Operator:
         Returns
         -------
         : 2D complex array
-            Matrix for SWAP gate 
+            Matrix for sqt(SWAP) gate 
         '''
         return self.cnot(N, k1, k2) @ self.cnot(N, k2, k1) @ self.cnot(N, k1, k2)
 
