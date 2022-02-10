@@ -467,7 +467,7 @@ class Operator:
             The raising operators X_k + i Y_k
         '''
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k, 'arg2':None ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k, 'arg2':None}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -503,7 +503,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k, 'arg2':None ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k, 'arg2':None}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -545,7 +545,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k, 'arg2':None ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k, 'arg2':None}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -586,7 +586,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k, 'arg2':None ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k, 'arg2':None}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -625,7 +625,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':None, 'arg2':None ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':None, 'arg2':None}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -666,7 +666,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':ctrl, 'arg2':trgt ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':ctrl, 'arg2':trgt}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -707,7 +707,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2 ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -747,7 +747,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2 ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2}
 
         # Define a function to construct the operator when needed
         def func(self):
@@ -792,7 +792,7 @@ class Operator:
         '''
 
         # Define variable dictionary for key name styles
-        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2 ,'arg3':None}
+        kwargs = {'arg0': N, 'arg1':k1, 'arg2':k2}
 
         # Define a function to construct the operator when needed
         def func(self):
