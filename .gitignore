@@ -1,3 +1,6 @@
+# Ignore no new tutorial data has been added
+tutorials/QuDiPy tutorial data/
+QuDiPy tutorial data/
 *.ipynb_checkpoints
 animation_plot/
 testing.py
