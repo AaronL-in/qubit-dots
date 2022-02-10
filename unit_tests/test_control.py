@@ -8,6 +8,7 @@ import numpy as np
 from random import random
 
 from qudipy.control import shapes
+from qudipy.starkshift import starkshit
 
 class TestPulseShapes:
     def test_square_pulse(self):
@@ -100,7 +101,116 @@ class TestPulseShapes:
                                         )
         np.testing.assert_equal(comp_result, True)
 
+
+                ## *** FROM VOLTAGE PULSES MODULE ***
+    def test_arbitrary_rotation_time(self):
+        '''
+        Verfifies that an arbitrary X, Y, and Z rotation return 
+        the same values as the regular X, Y, and Z rotations
+
+        Note: entering in a vector as the rotation axis instead of 
+              the string 'X', 'Y', or 'Z' will result in the arbitrary
+              rotation calculation being performed
+        '''
+        # Define a random interpolation of delta_g
+        def g_interp(v):
+            v = np.array(v)
+            if np.shape(v) == ():
+                return -1 * np.exp(0.01 * v)+1.9
+            else:
+                g = []
+                for volt in v:
+                    g.append(-1 * np.exp(0.01 * volt)+1.9)
+                return g
+
+        amp =  40       
+        offset =  10
+        t_start = -25
+        t_end = 5
+        sigma = 0.7 * (t_end - t_start)
+        square_shape = shapes.square(t_start=t_start, 
+                                        t_end=t_end, amp=amp, offset=offset)
+
+        B0 = balance_zeeman(g_interp, square_shape, 1000)
+
+        X_rot = rot('X', 90, 1, [1],g_interp(0), square_shape, B_0, 100)
+        tx1 = X_rot.ctrl_time
+        X_vec = rot([1,0,0] , 90, 1, [1],g_interp(0), square_shape, B_0, 100)
+        tx2 = X_vec.ctrl_time
         
+        Y_rot = rot('Y', 45, 2, [1],g_interp(0), square_shape, B_0, 100)
+        ty1 = Y_rot.ctrl_time
+        Y_vec = rot([0,1,0] , 45, 2, [1],g_interp(0), square_shape, B_0, 100)
+        ty2 = Y_vec.ctrl_time
+        
+        Z_rot = rot('Z', 120, 1, [1],g_interp(0), square_shape, B_0, 100)
+        tz1 = Z_rot.ctrl_time
+        Z_vec = rot([0,0,1] , 120, 1, [1],g_interp(0), square_shape, B_0, 100)
+        tz2 = Z_vec.ctrl_time
+
+        correct_times = [tx1, ty1, tz1]
+        check_times = [tx2, ty2, tz2]
+        np.testing.assert_almost_equal(check_times, correct_times, 7)
+
+    def test_retrieve_ctrlp_elements(self):
+        '''
+        Verifies that the rotation function defines and adds control pulse parameters 
+        correctly
+        '''
+        check_list = []
+        
+        def g_interp(v):
+            v = np.array(v)
+            if np.shape(v) == ():
+                return -1 * np.exp(0.01 * v)+1.9
+            else:
+                g = []
+                for volt in v:
+                    g.append(-1 * np.exp(0.01 * volt)+1.9)
+                return g
+            
+        amp =  40       
+        offset =  10
+        t_start = -25
+        t_end = 5
+        sigma = 0.7 * (t_end - t_start)
+        square_shape = shapes.square(t_start=t_start, 
+                                        t_end=t_end, amp=amp, offset=offset)
+        
+        B0 = balance_zeeman(g_interp, square_shape, 1000)
+        
+        ZROT = rot('z', 120, 3, [3], g_interp, square_shape, B0, num_val=100) #note: 3 qubits
+        #check that the phi variable is an array of num_val
+        check_list.append(shape(ZROT.ctrl_pulses['phi']) == 100)
+        #check that the ESR frequency is an array of num_val
+        check_list.append(shape(ZROT.ctrl_pulses['B_rf']) == 100)
+        #check that each of the delta_g_ind and V_ind lists are defined properly
+        for i in range(1, 4): #range of qubits
+            check_list.append(shape(ZROT.ctrl_pulses['delta_g_{ind}'.format(ind = i)]) == 100)
+            check_list.append(shape(ZROT.ctrl_pulses['V_{ind}'.format(ind = i)]) == 100)
+
+        XROT = rot('X', 45, 2, [1], g_interp, square_shape, B0, num_val=100) #note: 3 qubits
+        #check that the phi variable is an array of num_val
+        check_list.append(shape(XROT.ctrl_pulses['phi']) == 100)
+        #check that the ESR frequency is an array of num_val
+        check_list.append(shape(XROT.ctrl_pulses['B_rf']) == 100)
+        #check that each of the delta_g_ind and V_ind lists are defined properly
+        for i in range(1, 3): #range of qubits
+            check_list.append(shape(XROT.ctrl_pulses['delta_g_{ind}'.format(ind = i)]) == 100)
+            check_list.append(shape(XROT.ctrl_pulses['V_{ind}'.format(ind = i)]) == 100)
+
+        AROT = rot([1,0,1], 90, 4, [2,4], g_interp, square_shape, B0, num_val=100) #note: 3 qubits
+        #check that the phi variable is an array of num_val
+        check_list.append(shape(AROT.ctrl_pulses['phi']) == 100)
+        #check that the ESR frequency is an array of num_val
+        check_list.append(shape(AROT.ctrl_pulses['B_rf']) == 100)
+        #check that each of the delta_g_ind and V_ind lists are defined properly
+        for i in range(1, 5): #range of qubits
+            check_list.append(shape(AROT.ctrl_pulses['delta_g_{ind}'.format(ind = i)]) == 100)
+            check_list.append(shape(AROT.ctrl_pulses['V_{ind}'.format(ind = i)]) == 100)
+
+        correct = np.full(np.shape(check_list), True)
+        np.testing.assert_array_equal(check_list, correct)
 
 if __name__=='__main__':
     os.system('python -m pytest')
