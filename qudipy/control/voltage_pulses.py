@@ -10,7 +10,7 @@
 
 import numpy as np
 import pandas as pd
-from qudipy.control import shapes
+# TODO UNCOMMENT from qudipy.control import shapes
 from qudipy.circuit.control_pulse import ControlPulse
 from scipy.constants import e, m_e
 
@@ -29,6 +29,11 @@ def balance_zeeman(delta_g_interp, v_offset, f_rf):
     f_rf: float
         ESR frequency.
 
+    Requires
+    ------------
+    * delta_g_interp to take Anyof(Float Int) and return Anyof(Float Int)
+    * v_offset to take Anyof(Float Int) and return Anyof(Float Int)
+
     Returns
     -------
     B_0: float
@@ -36,7 +41,8 @@ def balance_zeeman(delta_g_interp, v_offset, f_rf):
         no rotation occurs on any of the idling qubits
     '''
 
-    delta_g_0 = delta_g_interp(v_offset)
+    delta_g_0 = delta_g_interp(v_offset(np.inf))
+
     
     omega = 2 * np.pi * f_rf / (1 + delta_g_0 / 2)
     B_0 = m_e / e * omega
@@ -73,6 +79,13 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
     B_0: float
         Zeeman field
 
+    Requires
+    ------------
+    * delta_g_interp to take Anyof(Float Int tuple array List) and return 
+            Anyof(Float Int tuple array List) -> will return a type of the same shape
+    * v_unit_shape to take Anyof(Float Int tuple array List) and return 
+            Anyof(Float Int tuple array List) -> will return a type of the same shape
+
     Keyword Arguments
     -----------------
     num_val: int
@@ -99,6 +112,8 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         axis = rotation_axis.upper()
     elif len(rotation_axis) != 3:
         print("Please enter an iterable with 3 Float components or enter one of 'X', 'Y', 'Z'")
+    else:
+        axis = rotation_axis
     
     # build a tuple of positions of inactive qubits
     all_qubits = range(1, n_qubits + 1)
@@ -143,7 +158,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
     
     # evaluating the integral of delta g pulse
     delta_g_pulse = delta_g_interp(v_unit_shape(tau))
-    delta_g_int = np.trapz(delta_g_pulse, tau) - delta_g_0
+    delta_g_int = np.trapz(delta_g_pulse, tau) - np.full(num_val, delta_g_0)
     
     # finding the pulse length and setting the correct time values for pulses
     T = 1.
@@ -155,7 +170,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
             rot_pulse.ctrl_pulses['V_{ind}'.format(ind = i)] = v_pulse
             
         # pulse duration
-        T = 2 * theta_rad / (omega * delta_g_int)
+        T = 2 * theta_rad / (omega * np.abs(delta_g_int))
         
     elif axis in ['X', 'Y']:
         # determine the phase values during the pulse first
@@ -187,7 +202,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
             
         # pulse duration
         alpha = theta_rad / (2 * np.pi)
-        T = 4 * np.pi / (omega * delta_g_int) *  np.sqrt(1 - alpha ** 2)
+        T = 4 * np.pi / (omega * np.abs(delta_g_int)) *  np.sqrt(1 - alpha ** 2)
     
     else:
         # *** ARBITRARY ROTATION ***
@@ -232,17 +247,41 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
             n_y = unit_rotation_axis[1]
             n_z = unit_rotation_axis[2]
             
-            v_shape_vals = []
-            for t in tau:
-                v_shape_vals.append(v_unit_shape(t))
+            delta_g = []
+            v_shape_vals = v_unit_shape(tau)
             if active:
-                return v_shape_vals * (2 * n_z * theta)/omega
+                parameter = (2 * n_z * theta)/omega
+                for v in v_shape_vals:
+                    delta_g.append(v * parameter)
+                return delta_g
             else:
-                return v_shape_vals * (2/omega) * np.sqrt(4 * np.pi**2 - theta**2 * (n_x**2 + n_y**2))
+                parameter = (2/omega) * np.sqrt(4 * np.pi**2 - theta**2 * (n_x**2 + n_y**2))
+                for v in v_shape_vals:
+                    delta_g.append(v * parameter)
+                return delta_g
 
+        #Add ESR frequency into the Control Pulse
+        v_shape_vals = v_unit_shape(tau)
+        v_shape_sign = []
+        for t in tau:
+            if v_unit_shape(t) < 0:
+                v_shape_sign.append(-1)
+            else:
+                v_shape_sign.append(1)
+        
+        omega_capital = []
+        B_rf =[]
+        parameter = abs(theta_rad) * np.sqrt(n_x**2 + n_y**2) #saves calculation time
+        for i in range(len(tau)):
+            omega_capital_tau = v_shape_vals[i] * parameter * v_shape_sign[i]
+            omega_capital.append(omega_capital_tau)
+            b_rf = m_e / e * omega_capital[i]
+            B_rf.append(b_rf)
+        rot_pulse.add_control_variable('B_rf', B_rf)
+        
         #Update the Control Pulse Object
-        d_g_active = delta_g_arbitraryROT([n_x, n_y, n_z], True, theta, v_unit_shape)
-        d_g_inactive =delta_g_arbitraryROT([n_x, n_y, n_z], False, theta, v_unit_shape)
+        d_g_active = delta_g_arbitraryROT([n_x, n_y, n_z], True, theta_rad, v_unit_shape) 
+        d_g_inactive = delta_g_arbitraryROT([n_x, n_y, n_z], False, theta_rad, v_unit_shape) 
 
         for i in active_qubits: 
             rot_pulse.ctrl_pulses['delta_g_{ind}'.format(ind = i)] = d_g_active
@@ -258,9 +297,9 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         for i in range(0,num_val):
             t = tau[i]
             if v_unit_shape(t) > 0:
-                phi = np.atan2(n_y, n_x)
+                phi = np.arctan2(n_y, n_x)
             else:
-                phi = np.atan2(n_y * -1, n_x * -1)
+                phi = np.arctan2(n_y * -1, n_x * -1)
             phis[i] = phi
         
         rot_pulse.add_control_variable("phi", phis)
@@ -272,9 +311,6 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
             T = factor * ((np.sqrt(1 - (alpha**2 * (n_x**2 + n_y**2)))) / abs(delta_g_int))
         else:
             T = factor * ((alpha * abs(n_z)) / abs(delta_g_int))
-        
-
-
 
     # finally, specifying the correct time values for the pulse and returning it
     rot_pulse.add_control_variable('time', tau * T)
@@ -285,4 +321,4 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
     #TODO pandas recall how to add values
     
     #TODO test out rotation code by seeing if [1,0,0] == 'X' rotation and so on - if so, use the simpler 'X'/'Y' rotation for the vector as well
-    
+
