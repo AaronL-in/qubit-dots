@@ -331,7 +331,6 @@ class Operator:
         u_k: 2D complex array
             Matrix U_k of dimensions 2**N x 2**N 
         '''
-        O = O
 
         if k == 1:
             u_k = np.kron(O, np.eye(2 ** (N - 1)))
@@ -363,32 +362,80 @@ class Operator:
 
         return u_k
 
-    # Use function to check if specific operator key name exists
-    def op_exist(self, **kwargs):
+    def man_coded_ops(self, func, N, save, case, **kwargs):
+        '''
+        Manages arbitrarily defined operators that were hard coded i.e. saves
+        the operator to the operator library if specified in the operator
+        function call and only computes the operator if it does not exist in
+        the operator library.
+        ----------
+        func : function
+            An arbitrary function is sent.
+        N : int
+            Number of 1-qubit degrees of freedom in the operators.
+        k : int
+            Position of the raising operators in the tensor product.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
+        Returns
+        -------
+        : complex 2D array
+            The computed or loaded operator
+            
+        '''
 
         # Retrive method name of caller method
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)
+        method_name = calframe[1][3]
 
-        # Dictionary used to switch operator key naming convention
-        name_style = {1: '{}_N{}K{}'.format(calframe[1][3], kwargs['N'], kwargs['k'])}
-        
+        # Dictionary used to switch operator key naming conventions
+        name_style = {'style 1': '{}_N{}k{}'.format(method_name, N, kwargs['k']),
+                    'style 2': '{}_N{}'.format(method_name, N),
+                    'style 3': '{}_N{}ctrl{}trgt{}'.format(method_name, N, 
+                        kwargs['ctrl'], kwargs['trgt']),
+                    'style 4': '{}_N{}k1_{}k2_{}'.format(method_name, N, 
+                        kwargs['k1'], kwargs['k2'])}
+
         # Operator key name 
-        op_key  = name_style[kwargs['case']]
-
-        print(op_key)
+        op_key  = name_style[case]
         
         # Prevent duplicate operator entries
         if op_key in self.lib:
-            return True, op_key, self.lib[op_key]
+            op_exist =  True
         else:
-            return False, op_key
+            op_exist =  False
 
+        # If operator doesn's exist, save it if specified. If the operator does
+        # exist then retrieve it from library
+        if op_exist is False:
+            # Compute operator for any specified function
+            op = func(self)
+
+            if save is True:
+                # Construct dictionary item for operator
+                operator_def = {
+                        op_key: op
+                }
+                
+                # Add operator to loaded dictionary
+                self.add_operators(operator_def)
+                # Save to operator library object
+                self.save_ops(self.filename)
+
+                return op
+        else:
+            # Retrieve operator
+            return self.lib[op_key]
 
     ##### Hard Coded Operators #####
 
     # Ladder operators X_k ± i Y_k
-    def sigma_plus(self, N, k, save=None):
+    def sigma_plus(self, N, k, save=None, case='style 1'):
         '''
         Defines a raising operator of the k-th qubit
         Parameters
@@ -397,50 +444,37 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k : int
             Position of the raising operators in the tensor product.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
         Returns
         -------
         : complex 2D array
             The raising operators X_k + i Y_k
         '''
 
-        # Search for operator with defined file name convention
-        op_exist, op_name = self.op_exist(N=N, k=k, case=1)
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k': k}
 
-        # If operator doesn's exist, save it if specified. If the operator does
-        # exist then retrieve it from library
-        if op_exist is False:
-            if save is True:
-                # Compute operator
-                u_k = (self.construct(N,k,self.lib['PAULI_X']) 
-                    + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
-                    
-                # Construct dictionary item for operator
-                operator_def = {
-                        op_name: u_k
-                }
-                
-                # Add operator to loaded dictionary
-                self.add_operators(operator_def)
-                # Save to operator library object
-                self.save_ops(self.filename)
+        # Define variable dictionary for key name styles
+        kwargs = {'k':k, 'ctrl':None ,'trgt':None, 'k1':None ,'k2':None}
 
-                return u_k
-            else:
-                # Retrieve operator
-                return self.lib[op_name]
-        else:
-            if op_exist is False:
-                # Compute operator
-                u_k = (self.construct(N,k,self.lib['PAULI_X']) 
-                        + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
-                   
-                return u_k
-            else:
-                # Retrieve operator
-                return self.lib[op_name]
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k = var['k']
 
+            return (self.construct(N,k,self.lib['PAULI_X']) 
+                + 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
 
-    def sigma_minus(self, N, k):
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+
+    def sigma_minus(self, N, k, save=None, case='style 1'):
+        
         '''
         Defines a lowering operator of the k-th qubit
         Parameters
@@ -449,20 +483,37 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k : int
             Position of the raising operators in the tensor product.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
         Returns
         -------
         : complex 2D array
             The lowering operators X_k - i Y_k
         '''
 
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k': k}
 
-        print(self.op_exist(N=N, k=k, case=1))
+        # Define variable dictionary for key name styles
+        kwargs = {'k':k, 'ctrl':None ,'trgt':None, 'k1':None ,'k2':None}
 
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k = var['k']
 
-        return (self.construct(N,k,self.lib['PAULI_X']) 
+            return (self.construct(N,k,self.lib['PAULI_X']) 
             - 1.0j * self.construct(N,k,self.lib['PAULI_Y']))
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
         
-    def e_up(self,N, k):
+    def e_up(self, N, k, save=None, case='style 1'):
+        
         '''
         Defines matrix that projects k-th qubit on the state |↑〉≡ |0〉
         
@@ -472,6 +523,12 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k : int
             Position of the projection matrix in the tensor product.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
             
         Keyword Arguments
         -----------------
@@ -482,9 +539,25 @@ class Operator:
         : 2D complex array
             Matrix |0〉〈0|_k of dimensions 2**N x 2**N 
         '''
-        return 0.5 * (self.unit(N) + self.construct(N,k,self.lib['PAULI_Z']))
 
-    def e_down(self,N, k):
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k': k}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':k, 'ctrl':None ,'trgt':None, 'k1':None ,'k2':None}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k = var['k']
+
+            return 0.5 * (self.unit(N) + self.construct(N,k,self.lib['PAULI_Z']))
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+        
+    def e_down(self, N, k, save=None, case='style 1'):
+      
         '''
         Defines matrix that projects k-th qubit on the state |↓〉≡ |1〉
         
@@ -494,6 +567,12 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k : int
             Position of the projection matrix in the tensor product.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
             
         Keyword Arguments
         -----------------
@@ -504,9 +583,25 @@ class Operator:
         : 2D complex array
             Matrix |1〉〈1|_k of dimensions 2**N x 2**N 
         '''
-        return 0.5 * (self.unit(N) - self.construct(N,k,self.lib['PAULI_Z']))
 
-    def unit(N):
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k': k}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':k, 'ctrl':None ,'trgt':None, 'k1':None ,'k2':None}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k = var['k']
+
+            return 0.5 * (self.unit(N) - self.construct(N,k,self.lib['PAULI_Z']))
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+
+    def unit(self, N, save=None, case='style 2'):
+       
         '''
         Defines unit matrix of dimensions 2**N x 2**N
         
@@ -514,6 +609,12 @@ class Operator:
         ----------
         N : int
             Number of 1-qubit degrees of freedom in the operators.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
             
         Keyword Arguments
         -----------------
@@ -524,10 +625,24 @@ class Operator:
         : 2D complex array
         Unit matrix of dimensions 2**N x 2**N
         '''
-        
-        return np.eye((2 ** N), (2 ** N), dtype=complex)
 
-    def cnot(self,N, ctrl, trgt):
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':None, 'ctrl':None ,'trgt':None, 'k1':None ,'k2':None}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+
+            return np.eye((2 ** N), (2 ** N), dtype=complex)
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+
+    def cnot(self, N, ctrl, trgt, save=None, case='style 3'):
+       
         '''
         Defines a matrix for CNOT gate.
         
@@ -539,6 +654,12 @@ class Operator:
             Index of the control qubit.
         trgt: int
             Index of the target qubit.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
             
         Keyword Arguments
         -----------------
@@ -548,10 +669,27 @@ class Operator:
         : 2D complex array
             Matrix for CNOT gate
         '''
-        return (self.e_up(N, ctrl) + self.e_down(N, ctrl) 
+
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'trgt':trgt ,'ctrl':ctrl}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':None, 'ctrl':ctrl ,'trgt':trgt, 'k1':None ,'k2':None}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            trgt = var['trgt']
+            ctrl = var['ctrl']
+
+            return (self.e_up(N, ctrl) + self.e_down(N, ctrl) 
             @ self.construct(N,trgt,self.lib['PAULI_X']))
 
-    def swap(self,N, k1, k2):
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+    
+    def swap(self, N, k1, k2, save=None, case='style 4'):
+      
         '''
         Defines SWAP gate matrix for the qubits with the indices k1, k2.
         
@@ -561,6 +699,12 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k1, k2: int
             Indices of the qubits.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
         Keyword Arguments
         -----------------
         None.
@@ -569,10 +713,27 @@ class Operator:
         : 2D complex array
             Matrix for sqt(SWAP) gate 
         '''
-        return self.cnot(N, k1, k2) @ self.cnot(N, k2, k1) @ self.cnot(N, k1, k2)
 
-    def sigma_product(self,N, k1, k2):
-        
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k1':k1 ,'k2':k2}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':None, 'ctrl':None ,'trgt':None, 'k1':k1 ,'k2':k2}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k1 = var['k1']
+            k2 = var['k2']
+
+            return self.cnot(N, k1, k2) @ self.cnot(N, k2, k1) @ self.cnot(N, k1, k2)
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+
+    
+    def sigma_product(self, N, k1, k2, save=None, case='style 4'):
+             
         '''
         Defines the dot product of two Pauli vectors.
         
@@ -582,6 +743,12 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k1, k2: int
             Indices of the qubits.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
         Keyword Arguments
         -----------------
         None.
@@ -591,15 +758,32 @@ class Operator:
             The inner product \vec{sigma_k1} \cdot \vec{sigma_k2}
         '''
 
-        return (self.construct(N, k1,self.lib['PAULI_X']) 
-            @ self.construct(N, k2,self.lib['PAULI_X']) 
-            + self.construct(N, k1,self.lib['PAULI_Y']) 
-            @ self.construct(N, k2,self.lib['PAULI_Y']) 
-            + self.construct(N, k1,self.lib['PAULI_Z']) 
-            @ self.construct(N, k2,self.lib['PAULI_Z']))
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k1':k1 ,'k2':k2}
 
-    def rswap(self,N, k1, k2):
+        # Define variable dictionary for key name styles
+        kwargs = {'k':None, 'ctrl':None ,'trgt':None, 'k1':k1 ,'k2':k2}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k1 = var['k1']
+            k2 = var['k2']
+
+            return (self.construct(N, k1,self.lib['PAULI_X']) 
+                @ self.construct(N, k2,self.lib['PAULI_X']) 
+                + self.construct(N, k1,self.lib['PAULI_Y']) 
+                @ self.construct(N, k2,self.lib['PAULI_Y']) 
+                + self.construct(N, k1,self.lib['PAULI_Z']) 
+                @ self.construct(N, k2,self.lib['PAULI_Z']))
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
+
+
     
+    def rswap(self, N, k1, k2, save=None, case='style 4'):
+
         '''
         Defines sqrt(SWAP) gate matrix for the qubits with the indices k1, k2.
         
@@ -609,6 +793,12 @@ class Operator:
             Number of 1-qubit degrees of freedom in the operators.
         k1, k2: int
             Indices of the qubits.
+        save : bool
+            boolean indicator from original function call to save the operator
+            to the library if true.
+        case : string
+            Is a string that specifies the naming style for the operator's key
+            label. The default is of the form <operator name>_N#k#.
         Keyword Arguments
         -----------------
         None.
@@ -617,6 +807,23 @@ class Operator:
         : 2D complex array
             Matrix for SWAP gate 
         '''
-        return (complex(0.25, -0.25) * self.sigma_product(N, k1, k2) 
+
+        # Define variable dictionary to assign them to the nested function
+        var = {'N': N, 'k1':k1 ,'k2':k2}
+
+        # Define variable dictionary for key name styles
+        kwargs = {'k':None, 'ctrl':None ,'trgt':None, 'k1':k1 ,'k2':k2}
+
+        # Define a function to construct the operator when needed
+        def func(self):
+            N = var['N']
+            k1 = var['k1']
+            k2 = var['k2']
+
+            return (complex(0.25, -0.25) * self.sigma_product(N, k1, k2) 
             + complex(1.5, 0.5) * self.unit(N))
+
+
+        # Check if the operator exist or needs to be save
+        return self.man_coded_ops(func, N, save, case, **kwargs)
 
