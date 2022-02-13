@@ -1,0 +1,39 @@
+{
+    "PAULI_X": 
+        {
+            "name": "PAULI_X",
+            "op": [["0.0 + 0.0j", "1.0 + 0.0j"], ["1.0 + 0.0j", "0.0 + 0.0j"]],
+            "info":
+                {
+                "unitary":true
+                }
+        },
+    "PAULI_Y": 
+        {
+            "name": "PAULI_Y",
+            "op":[["0.0 + 0.0j","1.0 - 1.0j"], ["0.0 + 1.0j", "0.0 + 0.0j"]],
+            "info":
+                {
+                "unitary":true
+                }
+        },
+    "PAULI_Z": 
+        {
+            "name": "PAULI_Z",
+            "op": [["1.0 + 0.0j", "0.0 + 0.0j"], ["0.0 + 0.0j", "-1.0 + 0.0j"]],
+            "info":
+                {
+                "unitary":true
+                }
+        },
+    "PAULI_I": 
+        {
+            "name": "PAULI_I",
+            "op": [["1.0 + 0.0j", "0.0 + 0.0j"], ["0.0 + 0.0j", "1.0 + 0.0j"]],
+            "info":
+                {
+                "unitary":true
+                }
+    }
+}
+

@@ -133,10 +133,10 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     Keyword Arguments
     -----------------
     f_type : string, optional
-        Type of file to load (either potential or electric field). 
-        Acceptable arguments include 
-        ['pot','potential','Uxy', 'electric','field','Ez']. The default
-        is 'pot' (potential).
+        Type of file to load (either potential or electric field). Acceptable 
+        case insensitive arguments include the strings 
+        ['pot','potential','uxy','electric','field','ez'].
+        Default is potential. The default is 'pot'
     f_dir : string, optional
         Path to find files specified by ctrl_vals and ctrl_names. The 
         default is the current working directory.
@@ -182,9 +182,9 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     for idx, curr_cvals in enumerate(product(*ctrl_vals)):
         # Now build up the current file name
         # First figure out type of file to load (electric or potential)
-        if f_type in ['pot', 'potential', 'Uxy']:
+        if f_type.lower() in ['pot', 'potential', 'uxy']:
             f_name = 'Uxy'
-        elif f_type in ['field', 'electric', 'Ez']:
+        elif f_type.lower() in ['field', 'electric', 'ez']:
             f_name = 'Ez'
             
         for name, val in zip(ctrl_names, curr_cvals):
@@ -230,8 +230,9 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             
             # Get new coordinate points by rounding number of coordinates 
             # points to a power of 2 for both x and y (for faster ffts).
-            new_x_len = 2**(len(new_x) - 1).bit_length() if new_x.any() else 1
-            new_y_len = 2**(len(new_y) - 1).bit_length() if new_y.any() else 1
+            new_x_len = 1 if len(new_x) == 0 else 2**(len(new_x) - 1).bit_length()
+            new_y_len = 1 if len(new_y) == 0 else 2**(len(new_y) - 1).bit_length()
+
             new_x = np.linspace(new_x.min(), new_x.max(), new_x_len)
             new_y = np.linspace(new_y.min(), new_y.max(), new_y_len)
             

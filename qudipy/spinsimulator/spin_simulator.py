@@ -24,12 +24,15 @@ from qudipy.circuit import ControlPulse
 from qudipy.utils.constants import Constants 
 
 
-#material system is chosen to be vacuum by default because such parameters as 
-#effective mass or dielectric constant do not matter for spin simulations;
-
+# Material system is chosen to be vacuum by default because such parameters as 
+# effective mass or dielectric constant do not matter for spin simulations;
 consts = Constants("vacuum")       
 
-#helper functions
+# Create operator object from object file
+# ops = matr.Unitary(operators={},filename='Unitary Operators.npz')
+ops = matr.Unitary(operators={},filename='Unitary Operators.npz')
+
+# Helper functions
 
 def p(B_0, T):
     """
@@ -58,8 +61,6 @@ def p(B_0, T):
         p_ = 1 / (exp (2 * consts.muB * B_0 / (consts.kB * T)) + 1)
     return p_
 
-    
-
 def J_sigma_product(N, k1, k2):
     """
     Matrix coupled to the exchange parameter J_{k_1, k_2}. Takes into account
@@ -85,7 +86,7 @@ def J_sigma_product(N, k1, k2):
     
     j_sigma_product_ = np.zeros((2 ** N, 2 ** N))
     if k1 != k2:
-         j_sigma_product_ = matr.sigma_product(N, k1, k2) / (4 * consts.hbar)  
+         j_sigma_product_ = ops.sigma_product(N, k1, k2) / (4 * consts.hbar)  
     return j_sigma_product_ 
     
 def x_sum(N):
@@ -109,8 +110,7 @@ def x_sum(N):
         consts.muB/consts.hbar .
 
     """
-    return consts.muB / consts.hbar * sum(matr.x(N, k) for k in range(1, N+1))
-
+    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops.operators['PAULI_X']) for k in range(1, N+1))
 
 def y_sum(N):
     """
@@ -133,8 +133,7 @@ def y_sum(N):
         by consts.muB / consts.hbar.
 
     """
-    return consts.muB / consts.hbar * sum(matr.y(N, k) for k in range(1, N+1))
-
+    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops.operators['PAULI_Y']) for k in range(1, N+1))
 
 def z_sum_omega(N, B_0, f_rf):
     """
@@ -163,8 +162,7 @@ def z_sum_omega(N, B_0, f_rf):
 
     """
     return ((consts.muB * B_0 / consts.hbar - pi * f_rf)
-                * sum(matr.z(N, k) for k in range(1, N+1)))
-
+    * sum(ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)))
 
 def z_sum_p(N, B_0, T, T_1):
     """
@@ -194,11 +192,11 @@ def z_sum_p(N, B_0, T, T_1):
 
 
     """
-    return (2 * p(B_0, T) - 1) / T_1 * sum(matr.z(N, k) for k in range(1, N+1))
+    return ((2 * p(B_0, T) - 1) / T_1 
+    * sum(ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)))
     
 
-#list of dictionaries of constant matrices
-
+# List of dictionaries of constant matrices
 
 def const_dict(N_0, T, B_0, f_rf, T_1):
     """
@@ -230,8 +228,8 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
         - "Xs" - list of X_k
         - "Ys" - list of Y_k
         - "Zs" - list of Z_k
-        - "sigma_pluses" - array of matr.sigma_plus_k_l
-        - "sigma_minuses" - list of matr.sigma_minus_k
+        - "sigma_pluses" - array of ops.sigma_plus_k_l
+        - "sigma_minuses" - list of ops.sigma_minus_k
         - "J_sigma_products" - (symmetric) matrix of 
             (\frac{1}{4 * \hbar} \vec{sigma_k1} \cdot \vec{sigma_k2})
         - "x_sum" (multiplied by consts.muB/consts.hbar)
@@ -247,12 +245,12 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
     const_dict_ = []
     for N in range(1,N_0+1):
         
-        Xs = [matr.x(N, k) for k in range(1, N+1)]
-        Ys = [matr.y(N, k) for k in range(1, N+1)]
-        Zs = [matr.z(N, k) for k in range(1, N+1)]
+        Xs = [ops.construct(N, k,ops.operators['PAULI_X']) for k in range(1, N+1)]
+        Ys = [ops.construct(N, k,ops.operators['PAULI_Y']) for k in range(1, N+1)]
+        Zs = [ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)]
         
-        sigma_pluses = [matr.sigma_plus(N, k) for k in range(1, N+1)]
-        sigma_minuses = [matr.sigma_minus(N, k) for k in range(1, N+1)]
+        sigma_pluses = [ops.sigma_plus(N, k) for k in range(1, N+1)]
+        sigma_minuses = [ops.sigma_minus(N, k) for k in range(1, N+1)]
         
         J_sigma_products = [[J_sigma_product(N, k1, k2) for k2 in 
                                      range(1, N+1)] for k1 in range(1, N+1)] 
@@ -266,7 +264,6 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
                                 "z_sum_p":z_sum_p(N, B_0, T, T_1)})
     
     return const_dict_
-
 
 class SpinSys:
     """
@@ -752,8 +749,7 @@ class SpinSys:
 
         return ret_dict
 
-
-###### called when optional parameters of 'evolve' are specified as True ######
+    #### called when optional parameters of 'evolve' are specified as True ####
    
     def track_subsystem(self, track_qubits=None, eval_Bloch_vectors=False):
         """
@@ -795,23 +791,23 @@ class SpinSys:
             raise ValueError("The tracked qubits should be properly specified"  
                              "by an int or an iterable of ints. None of the"  
                                  "qubits has been tracked")
-       
-        if ifint:
-            trqub = {track_qubits}
-        if ifiterable :
-            trqub = set(track_qubits) 
+        else:
+            if ifint:
+                trqub = {track_qubits}
+            if ifiterable :
+                trqub = set(track_qubits) 
 
-        for qub in trqub:
-            submatrix = qmath.partial_trace(self.rho, (Nset-{qub}))
-            subm = "submatrix_{}".format(qub)
-            ret_dict[subm] = submatrix
-            if eval_Bloch_vectors:
-                ret_dict["sigma_x_{}".format(qub)] = np.trace(submatrix 
-                                                            @ matr.PAULI_X)
-                ret_dict["sigma_y_{}".format(qub)] = np.trace(submatrix 
-                                                            @ matr.PAULI_Y)
-                ret_dict["sigma_z_{}".format(qub)] = np.trace(submatrix 
-                                                            @ matr.PAULI_Z)
+            for qub in trqub:
+                submatrix = qmath.partial_trace(self.rho, (Nset-{qub}))
+                subm = "submatrix_{}".format(qub)
+                ret_dict[subm] = submatrix
+                if eval_Bloch_vectors:
+                    ret_dict["sigma_x_{}".format(qub)] = np.trace(submatrix 
+                        @ ops.operators['PAULI_X'])
+                    ret_dict["sigma_y_{}".format(qub)] = np.trace(submatrix 
+                        @ ops.operators['PAULI_Y'])
+                    ret_dict["sigma_z_{}".format(qub)] = np.trace(submatrix 
+                        @ ops.operators['PAULI_Z'])
                 
         return ret_dict
             

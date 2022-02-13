@@ -122,8 +122,9 @@ class PotentialInterpolator:
                                  ' correct number of elements.\n' + 
                                  f'Expected {exp_num} or {exp_num-2} number' +
                                  f' of elements, got {len(volt_vec)} instead.')
-            volt_vec = [volt_vec[idx] for idx in range(len(volt_vec)) if
-                        idx not in self.single_dims]
+            else:
+                volt_vec = [volt_vec[idx] for idx in range(len(volt_vec)) if
+                            idx not in self.single_dims]
         
         # Check if values are out of min/max range
         for idx in range(self.n_voltage_ctrls):
@@ -133,6 +134,7 @@ class PotentialInterpolator:
             else:
                 raise ValueError('Input voltage vector values are out of' +
                                  ' range of grid vectors.')
+
         # Get number of control vector inputs
         try:
             n_pts = len(volt_vec[0])
