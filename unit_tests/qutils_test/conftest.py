@@ -72,3 +72,20 @@ def non_unitary_op():
         return {
         'added_op': np.array([[-1.0+1.0j,-1.0+1.0j],[-1.0+1.0j,-1.0+1.0j]])
     }
+
+# Define operator object from object file   
+@pytest.fixture(scope="module")
+def op_f(data_dir):
+        return matr.Operator(filename=data_dir)
+        
+# Define operator object from existing dictionary of operators  
+@pytest.fixture(scope="module")
+def op_d(op_save):
+        return matr.Operator(operators=op_save)
+
+# Define operator object from object file and existing dictionary of operators
+@pytest.fixture(scope="module")
+def op_df(op_save, data_dir):
+        return matr.Operator(operators=op_save, filename=data_dir)
+
+
