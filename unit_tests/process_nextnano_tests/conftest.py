@@ -10,14 +10,16 @@ import qudipy.potential as pot
 def ctrl_data_input_path():
     # Check that any data from path is imported
     # input = (os.path.join(sys.path[0],'QuDiPy tutorial data','Nextnano simulations','1_dot_P_0p5_0p7'))
-    input = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Nextnano simulations'))
+    # input = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Nextnano simulations'))
+    input = (os.path.join(sys.path[0],'tutorials','QuDiPy tutorial data','Nextnano simulations'))
 
     return input
 
 @pytest.fixture(scope="module")
 def ctrl_data_output_path():
     # Check that any data from path is imported
-    output = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Pre-processed_data'))
+    # output = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Pre-processed_data'))
+    output = (os.path.join(sys.path[0],'tutorials','QuDiPy tutorial data','Pre-processed_data'))
         
     return output
 

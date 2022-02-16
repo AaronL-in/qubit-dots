@@ -1,8 +1,8 @@
 """
-Functions for covnerting 3D nextnano data to 2D data along user defined
+Functions for converting 3D nextnano data to 2D data along a user-defined
 z-coordinate.
 
-@author: Kewei, Zach
+@author : Kewei, Zach
 """
 
 import os, sys
@@ -20,50 +20,64 @@ def load_file(filename):
 
     Parameters
     ----------
-    filename: String
+    filename  : String
         full path for the files of interest
 
     Returns
     -------
-    x, y, z: Tuple of Lists
+    x, y, z  : Tuple of Lists
         a single array ordered by the coordinates for potential.dat files or
         a tuple of 3 element, x, y, z for potential.coord files
     '''
 
-    # import .dat data
+    def mesh(index):
+        '''
+        This function parses integers in a string which only contains one 
+        integer surrounded by white space and/or new line charaters
+
+        Parameters
+        ----------
+        index  : Integer
+            Index value of a string to evaluate from a list of strings
+        '''
+        return [int(i) for i in d[index].split() if i.isdigit()][0]
+
+    # Import .dat data
     if filename[-4:] == '.dat':
         df = pd.read_csv(filename, header=None)
         data = df.to_numpy()
 
         return data
 
-    # import .coord data
+    # Import .coord data
     if filename[-6:] == '.coord':
 
-         # read in xyz dimensions from .fld file for extracting .coord data
+         # Read in xyz dimensions from .fld file for extracting .coord data
         with open(filename.replace('.coord','.fld'), 'r') as f:
             d = f.readlines()
 
-            xdim = [int(i) for i in d[3].split() if i.isdigit()][0]
-            ydim = [int(i) for i in d[4].split() if i.isdigit()][0]
-            zdim = [int(i) for i in d[5].split() if i.isdigit()][0]
+            # Get the dim value for each coordinate axis which corresponds to
+            # number of mesh points along each axis            
+            xmesh = mesh(3)
+            ymesh = mesh(4)
+            zmesh = mesh(5)
 
-        # extract xyz coordinate data
+        # Extract xyz coordinate data
         with open(filename, 'r') as f:
             d = f.readlines()
 
-            # convert list of strings to list of floats
+            # Convert list of strings to list of floats
             data = []
-            for i in list(filter(lambda x: x != '\n', d)):
+            for i in list(filter(lambda x : x != '\n', d)):
                 data.append(float(i.strip()))
 
-            x = data[:xdim]
-            y = data[xdim:xdim+ydim]
-            z = data[xdim+ydim:xdim+ydim+zdim]
+            x = data[:xmesh]
+            y = data[xmesh:xmesh+ymesh]
+            z = data[xmesh+ymesh:xmesh+ymesh+zmesh]
 
             return x, y, z
 
-def parse_ctrl_items(filename, ctrl_type):
+def parse_ctrl(filename, ctrl_type):
     '''
     This function collects all of the control items in the filename string and
     processed nextnano potential files are assumed to follow the syntax:
@@ -73,31 +87,26 @@ def parse_ctrl_items(filename, ctrl_type):
 
     Parameters
     ----------
-    filename: String
+    filename : String
         Full path to the filename and containts control items
         (either name/value) information.
-    ctrl_type: String
+    ctrl_type : String
         Specifies what control item needs to be returned. Acceptable
         arguments include ['value','values','name','names'] where case is
         not relevant.
 
     Returns
     -------
-    ctrls: List of control items of the specific control type
+    ctrls : List
+        List of control items of the specific control type
     '''
 
-    # parse string via _,\, /
+    # Parse string via _,\, /
     parsed_filename = re.split(r'[_/\\]',filename)
 
     ctrls = []
     for idx, val in enumerate(parsed_filename):
         try:
-    #         if float(val) < 100:
-    #             if ctrl_type.lower() in ['value', 'values']:
-    #                 ctrls.append(float(val))
-    #             elif ctrl_type.lower() in ['name', 'names']:
-    #                 ctrls.append(parsed
-
             if val[0] == 'V':
                 if ctrl_type.lower() in ['name', 'names']:
                     ctrls.append(parsed_filename[idx])
@@ -107,23 +116,26 @@ def parse_ctrl_items(filename, ctrl_type):
             pass
     return ctrls
 
-def import_folder(folder, file_import_display=False):
+def import_dir(folder, show_files=False):
     '''
     Parameters
     ----------
-    folder: String
+    folder : String
         Name of the folder where nextnano files are stored
 
 
     Keyword Arguments
     -----------------
-    file_import_display: bool
-        display command line output of the files being imported.
+    show_files : Bool
+        Display command line output of the files being imported.
 
     Returns
     -------
-    data: List
-        Where each element is a list of voltages, potentials, and coordinates
+    data : Dictionary
+        Where each key/value pair is a key label for the type of data stored in
+        value i.e  ctrl_names for a list of voltage labels, ctrl_values for a 
+        list of potentials, and coord for a dictionary containing coordinate 
+        data.
 
     nextnano file structure:
 
@@ -134,41 +146,43 @@ def import_folder(folder, file_import_display=False):
 
     '''
 
-    # list which holds all of the simulation run data grouped by run
+    # Dictionary which holds all of the simulation run data grouped by run
     data = {}
 
-    # return lists of all subdirectories, base directories (ignored), files in
+    # Loop over all subdirectories, base directories (ignored), files in
     # folder 
     count = 0   
     for subdir, _, files in os.walk(folder):
         
-        # dictionary containing run data i.e. voltages, potential, 3-tuple of
+        # Dictionary containing run data i.e. voltages, potential, 3-tuple of
         # coordinates
-        data_per_run = {   'ctrl_names': {},
-                                'ctrl_values': {},
-                                'coord': {  'x': {},
-                                            'y': {},
-                                            'z': {}
-                                        }
-                            }
+        data_per_run = {    
+                            'ctrl_names' : {},
+                            'ctrl_values' : {},
+                            'coord': {  
+                                        'x' : {},
+                                        'y' : {},
+                                        'z' : {}
+                                    }
+                        }
 
-        # parse voltage information for the directory one level higher than
+        # Parse voltage information for the directory one level higher than
         # /output
 
-        # TODO: Standardize nextnano output directory/file structure and naming convention
+        # TODO : Standardize nextnano output directory/file structure and naming convention
         if subdir != folder and subdir[-6:] == 'output':
                 
-            # elect to display the files being imported from nextnano
-            if file_import_display == True:
+            # Elect to display the files being imported from nextnano
+            if show_files == True:
                 print('Importing .coord and .dat data files from {}:'.format(
                     subdir.replace(str(folder),'')))
 
-            voltage = parse_ctrl_items(subdir,'value')
+            voltage = parse_ctrl(subdir,'value')
 
-            # first append control values
+            # First append control values
             data_per_run['ctrl_names'] = voltage
 
-            # second append potential data
+            # Second append potential data
             for file in files:
 
                 filename = os.path.join(subdir, file)
@@ -176,7 +190,7 @@ def import_folder(folder, file_import_display=False):
                 if filename[-13:] == 'potential.dat':
                     data_per_run['ctrl_values'] = load_file(filename)
 
-            # finally append coordinate data
+            # Finally append coordinate data
             for file in files:
                 filename = os.path.join(subdir, file)
 
@@ -190,22 +204,22 @@ def import_folder(folder, file_import_display=False):
             count += 1
     return data
 
-def retrieve_ctrl_vals(nextnano_data):
+def get_ctrl_vals(nextnano_data):
     '''
-    This function takes the list containing all data related to the nextnano
+    This function takes the dictionary containing all data related to the nextnano
     simulation runs which are to be used to create an interpolation object and
     retuns a list containing list of every unique control value for the given
     control name.
 
     Parameters
     ----------
-    nextnano_data: List
+    nextnano_data : List
         A list containing lists of voltages, potentials, and coordinates for
         all simulation runs.
 
     Returns
     -------
-    voltages: List
+    voltages : List
         List of all unique control values per control name for all simulation
         runs in the data directory.
 
@@ -230,31 +244,31 @@ def retrieve_ctrl_vals(nextnano_data):
 
     '''
 
-    # store unique voltages per gate
+    # Store unique voltages per gate
     voltages = []
 
-    # loop over all gate voltages
+    # Loop over all gate voltages
     for i in range(len(nextnano_data[0]['ctrl_names'])):
 
-        # initialize with voltage of the ith gate's first simulation run
+        # Initialize with voltage of the ith gate's first simulation run
         gate = [nextnano_data[0]['ctrl_names'][i]]
 
-        # loop over all simulation runs
+        # Loop over all simulation runs
         for j in range(len(nextnano_data)-1):
 
-            # store voltage if unique
+            # Store voltage if unique
             if (nextnano_data[j]['ctrl_names'][i] 
                 != nextnano_data[j+1]['ctrl_names'][i]):
                 gate.append(nextnano_data[j+1]['ctrl_names'][i])
 
-        # convert between list/dict to remove any duplicate voltages per gate
+        # Convert between list/dict to remove any duplicate voltages per gate
         # while preserving original list order
         gate = list(dict.fromkeys(gate).keys())
 
         voltages.append(gate)
     return voltages
 
-def reshape_potential(potential, x, y, z, slice, f_type):
+def reshape_field(potential, x, y, z, f_type, slice=None, show_z=None):
     '''
     This function reshapes the 1d array of potential data according to the
     number of data points for the x,y, and z coordinates then retuns the field
@@ -262,32 +276,42 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     Parameters
     ----------
-    potential: Array
-        Array conaining all of the potential data for the x,y, and z coordinates.
+    potential : Array
+        An array conaining all of the potential data for the x,y, and z coordinates.
 
-    x,y,z: List
+    x,y,z : List
         Coordinates for the potential data contained in the 1d potential array.
 
-    slice: Float
-        z coordinate value to generate a 2D potential interpolation object
-        from all simulation runs.
-    f_type: List
+    f_type : List
         Field type identifier either ['field', 'electric', 'Ez']  or
-        ['pot', 'potential', 'Uxy' ]where case is not relevant.
+        ['pot', 'potential', 'Uxy'] where case is not relevant.
+
+    Keyword Arguments
+    -----------------
+    slice : Float
+        z coordinate value to generate a 2D potential interpolation object
+        from all simulation runs or 3D array if slice is unspecified.
+
+    show_z : Bool
+        A flag to display what the actually z coordinate which the 3D data was
+        sliced along.
 
     Returns
     -------
-    field2DArray: Array
+    field2DArray : Array
         2d array of the potentials in the XY-plane along slice z-coordinate.
 
     '''
 
-    # find the index for the closest coordinate which corresponds to the desired
+    # Find the index for the closest coordinate which corresponds to the desired
     # z-coordinate
-    index_tuple,_ = hp.find_nearest(z,slice)
+    index_tuple,nearest_z = hp.find_nearest(z,slice)
     index = index_tuple[0]
 
-    # number of data points per axis provided from simulations
+    if show_z:
+        print(f'The nearest z coordinate to slice={slice}, is z={nearest_z}.')
+
+    # Number of data points per axis provided from simulations
     xsize = len(x)
     ysize = len(y)
     zsize = len(z)
@@ -302,74 +326,80 @@ def reshape_potential(potential, x, y, z, slice, f_type):
 
     return field2DArray
 
-def xy_potential(potential, gates, slice, f_type, output_dir_path):
+def xy_pot(potential, gates, slice, f_type, output_dir_path=None, save=None):
     '''
     This function takes the potential data and control value information and
-    saves a 2D potential crossection along slice to a text file in the user
+    saves a 2D potential cross section along slice to a text file in the user
     specified directory for a given field type.
 
     Parameters
     ----------
-    potential: List
-        A list containing lists of voltages, potentials, and coordinates for
-        all simulation runs.
+    potential : Dictionary
+        Where each key/value pair is a key label for the type of data stored in
+        value i.e  ctrl_names for a list of voltage labels, ctrl_values for a 
+        list of potentials, and coord for a dictionary containing coordinate 
+        data.
 
-    gates: List
-        List of list for the unquie control values for each control name.
+    gates : List
+        List of lists for the unique control values for each control name.
 
-    slice: Float
+    slice : Float
         Z-coordinate to take a cross section on.
 
     Keyword Arguments
     ----------
-    f_type: List
+    f_type : List
         Field type identifier
         ['field', 'electric', 'Ez', 'pot', 'potential', 'Uxy'] where case is not
          relevant.
 
-    output_dir_path: String
+    output_dir_path : String
         Directory path for the processed nextnano field data.
 
     Returns
     -------
-    file_trig: integer
-        retunrs 0 if Potential or electric field XY-plane data is saved as a
+    file_trig : Integer
+        Returns 0 if Potential or electric field XY-plane data is saved as a
         text file for the z-coordinate along slice. Otherwise, -1 is returned.
+
+    coord_and_pot : Array
+        Returns the 2D pontenial data slice with the x/y coordinates appended to
+        the first row and column.
     '''
 
     potential_copy = potential.copy()
-    # loop through each combination of gate voltages
+    # Loop through each combination of gate voltages
     for i in potential_copy:
 
         if f_type.lower() in ['pot', 'potential', 'uxy']:
-            # capital U used here for writing nextnano data to text file
+            # Capital U used here for writing nextnano data to text file
             f_name = 'Uxy'
-            # slice an x-y plane of the potentials
-            potential2D = reshape_potential(potential_copy[i]['ctrl_values'], 
+            # Slice an x-y plane of the potentials
+            potential2D = reshape_field(potential_copy[i]['ctrl_values'], 
                                             potential_copy[i]['coord']['x'],
                                             potential_copy[i]['coord']['y'], 
                                             potential_copy[i]['coord']['z'],
-                                            slice, f_name)
+                                            f_name, slice)
         elif f_type.lower() in ['field', 'electric', 'ez']:
-            # capital E used here for writing nextnano data to text file
+            # Capital E used here for writing nextnano data to text file
             f_name = 'Ez'
-            potential2D = reshape_potential(potential_copy[i]['ctrl_values'], 
+            potential2D = reshape_field(potential_copy[i]['ctrl_values'], 
                                             potential_copy[i]['coord']['x'],
                                             potential_copy[i]['coord']['y'], 
                                             potential_copy[i]['coord']['z'],
-                                            slice, f_name)
+                                            f_name, slice)
 
-        # create an array of zeros with the demension of the potential 2D slice
+        # Create an array of zeros with the dimension of the potential 2D slice
         # and x/y coordinate axis
         coords_and_pot = np.zeros((np.shape(potential2D)[0]+1,
             np.shape(potential2D)[1]+1),dtype=float)
 
-        # insert x,y, and potential 2D slice into array
+        # Insert x,y, and potential 2D slice into array
         coords_and_pot[1:,0] = potential_copy[i]['coord']['x']
         coords_and_pot[0,1:] = potential_copy[i]['coord']['y']
         coords_and_pot[1:,1:] = -1*potential2D
 
-        # transpose array to make the y-axis data run row wise and x-axis data
+        # Transpose array to make the y-axis data run row wise and x-axis data
         # run column wise.
         coords_and_pot = np.transpose(coords_and_pot)
 
@@ -381,85 +411,90 @@ def xy_potential(potential, gates, slice, f_type, output_dir_path):
 
         f_name +='.txt'
 
-        # create directory for preprocessed data
+        # Create directory for preprocessed data
         if not os.path.exists(output_dir_path):
             os.mkdir(output_dir_path)
 
-        # join file name to directory path
+        # Join file name to directory path
         f_path = os.path.join(output_dir_path,f_name)
 
-       #try to save the data to a text file
-        try:
-            # save potential data for xy slice
-            np.savetxt(f_path, coords_and_pot, delimiter=',')
-            file_trig = 0
-        except:
-            file_trig = -1
+        if save:
+        # Try to save the data to a text file
+            try:
+                # Save potential data for xy slice
+                np.savetxt(f_path, coords_and_pot, delimiter=',')
+                file_trig = 0
+            except:
+                file_trig = -1
+        else:
+            # Return none if no save value was provided
+            file_trig = None
 
     return file_trig, coords_and_pot
 
-def write_data(input_dir_path,output_dir_path,slice,f_type):
+def write_data(input_dir_path, output_dir_path, slice, f_type):
     '''
     This function takes the data directory containing the 3D nextnano simulation
     run files and calls helper functions which process the 3D data into 2D field
-    data along a specific slice crossection. Then 2D field information is save
-    in an output directory for every user defined field type.
+    data along a specific slice cross section. Then 2D field information is
+    saved in an output directory for every user defined field type.
 
     Parameters
     ----------
-    input_dir_path: String
+    input_dir_path : String
         Directory path for the pre-processed nextnano field data files.
 
-    output_dir_path: String
+    output_dir_path : String
         Directory path to write the processed nextnano field data files.
 
-    slice: Float
-        z coordinate value to generate a 2D potential interpolation object
+    slice : Float
+        Z coordinate value to generate a 2D potential interpolation object
         for from all simulation runs.
 
     Keyword Arguments
     ----------
-    f_type: List
+    f_type : List
         Field type identifier either ['field', 'electric', 'Ez']  or
         ['pot', 'potential', 'Uxy' ] where case is not relevant.
 
     Returns
     -------
-    file_trig: integer
-        retunrs 0 if Potential or electric field XY-plane data is saved as a
+    file_trig : Integer
+        Returns 0 if Potential or electric field XY-plane data is saved as a
         text file for the z-coordinate along slice. Otherwise, -1 is returned.
     '''
-    potential = import_folder(input_dir_path)
+    potential = import_dir(input_dir_path)
 
-    # find nearest slice from user specified slice
+    # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
 
     for subdir, _, _ in os.walk(input_dir_path):
 
-        # parse voltage information for the directory one level higher
+        # Parse voltage information for the directory one level higher
         # than /output
         if subdir != input_dir_path and subdir[-6:] == 'output':
-            gates = parse_ctrl_items(subdir,'name')
+            gates = parse_ctrl(subdir,'name')
             break
 
-    # output_dir_path = output_dir_path + '_slice_{}'.format(slice)
     output_dir_path = output_dir_path + '_for_nearest_slice{:.3e}'.format(nearest_slice)
 
-    # write xy potential files
+    # Write xy potential files
     for i in f_type:
 
-        # try to write xy potential text files
-        file_trig, coords_and_pot = xy_potential(potential,gates,nearest_slice,i
-            ,output_dir_path)
+        # Try to write xy potential text files
+        file_trig, _ = xy_pot(potential,gates,nearest_slice,i
+            ,output_dir_path, save=True)
 
-        # indicate to user that the file failed/succeeded writting the data
+        # Indicate to user that the file failed/succeeded writting the data
         # to a text file
         if file_trig == 0:
-            print('Converting 3D nextnano simulation data to 2D XY-plane '
-                + '{} along slice for z = {}.'.format(i,nearest_slice))
+            print('SAVE SUCCESS: Converting 3D nextnano simulation data to 2D ' 
+            'XY-plane {} along slice for z = {}.'.format(i,nearest_slice))
         elif file_trig == -1:
-            print('FAILED to convert 3D nextnano simulation data too 2D '
-                + 'XY-plane {} data along slice for '
+            print('FAILED SAVE: Failed to convert 3D nextnano simulation data '
+                'too 2D XY-plane {} data along slice for '
                 + 'z = {}.'.format(i,nearest_slice))
+        else:
+            print('NO DATA SAVED: Save flag in xy_pot is set to None or False')
 
-    return file_trig, coords_and_pot
+    return file_trig

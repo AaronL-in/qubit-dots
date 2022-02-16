@@ -1,8 +1,8 @@
-"""
+'''
 Unittests for the module potential.process_nextnano.py.
 
 @author: Zach
-"""
+'''
 
 import os, sys
 sys.path.append(os.path.dirname(os.getcwd()))
@@ -43,29 +43,6 @@ markers =
         <marker 2 name>,
         <marker 2 name>
 '''
-
-# @pytest.fixture
-# def ctrl_data_input_path():
-#     # Check that any data from path is imported
-#     # input = (os.path.join(sys.path[0],'QuDiPy tutorial data','Nextnano simulations','1_dot_P_0p5_0p7'))
-#     input = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Nextnano simulations'))
-
-#     return input
-
-# @pytest.fixture
-# def ctrl_data_output_path():
-#     # Check that any data from path is imported
-#     output = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Pre-processed_data'))
-        
-#     return output
-
-# @pytest.fixture
-# def ctrl_data(ctrl_data_input_path):
-#     # Check that any data from path is imported
-#     # input_nextnano = (os.path.join(sys.path[0],'QuDiPy tutorial data','Nextnano simulations'))
-#     data = pot.process_nextnano.import_folder(ctrl_data_input_path, file_import_display=True)
-
-#     return data
 
 # Test data is being imported correctly
 @pytest.mark.process_data
@@ -112,7 +89,13 @@ def test_ctrl_val_minipulation(ctrl_data_input_path, ctrl_data):
     
     # Make sure control values are combined correctly
     ctrl_vals = pot.process_nextnano.retrieve_ctrl_vals(ctrl_data)
-    assert ctrl_vals == [[0.1],[0.2],[0.2],[0.2, 0.22, 0.24, 0.25, 0.26],[0.1]]
+
+    print(ctrl_data.keys)
+
+    print(ctrl_vals)
+
+    # assert ctrl_vals == [[0.1],[0.2],[0.2],[0.2, 0.22, 0.24, 0.25, 0.26],[0.1]]
+    assert ctrl_vals == [[0.1],[0.2],[0.2],[0.26, 0.2, 0.22, 0.25, 0.24],[0.1]]
 
 # reshape_potential works 
 def test_reshape_potential(ctrl_data_input_path, ctrl_data):
