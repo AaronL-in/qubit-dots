@@ -22,28 +22,17 @@ print('-----------------------------')
 # Import all of the neccessary potential data and meta data for the simulation runs.
 # Potential is a dictionary data type containing nested list.
 # Each element of the dictionary contains [list of control valuess, list of potential data, dictionary for x,y, and z cordinate data].
-potential = pot.process_nextnano.import_dir(input_nextnano, nn_vars=['v1','v2','v3','v4','v5'], show_files=True)
-
-# print(input_nextnano)
-
-# # Note the nested dictionary key structure
-# print(potential.keys())
-# print('-----------------------------=========================')
-# print(potential[0].keys())
-# print('-----------------------------')
-# print(potential[0]['ctrl_names'])
-# print('-----------------------------')
-# print(potential[0]['ctrl_values'])
-# print('-----------------------------++++++++++++++++++++++++')
-# print(potential[0]['coord'].keys())
-# print('-----------------------------')
-# print(potential[1]['ctrl_names'])
-# print('-----------------------------')
-# print(potential[1]['ctrl_values'])
-# print('-----------------------------++++++++++++++++++++++++')
-# print(potential[1]['coord'].keys())
+potential = pot.process_nextnano.import_dir(input_nextnano, show_files=True)
 
 
+
+print(potential.keys())
+for i in range(len(potential.keys())):
+    print(potential[i].keys())
+    print(potential[i]['ctrl_names'])
+    print(potential[i]['ctrl_values'])
+    print(potential[i]['coord'].keys())
+    print(potential[i]['coord']['x'])
 
 
 

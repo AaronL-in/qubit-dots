@@ -116,13 +116,9 @@ def parse_ctrl(filename, ctrl_type):
             pass
     return ctrls
 
-def get_ctrl(filename, dir, sub_dir, ctrl_type):
+def get_ctrl(filename, ctrl_type):
 
     ctrl_item = []
-    # oldcwd = os.getcwd()
-
-    # tmpcwd = os.path.join(dir,sub_dir)
-    # os.chdir(tmpcwd)
 
     trig = 0
     # Read voltage values
@@ -150,8 +146,7 @@ def get_ctrl(filename, dir, sub_dir, ctrl_type):
     # os.chdir(oldcwd)
     return ctrl_item
 
-
-def import_dir(dir, nn_vars, show_files=False):
+def import_dir(dir, show_files=False):
     '''
     Parameters
     ----------
@@ -212,52 +207,41 @@ def import_dir(dir, nn_vars, show_files=False):
             # Track the control items
             ctrl_item = []
 
-            # Change the working directory
-            oldcwd = os.getcwd()
-            print(os.getcwd())
-
-            tmpcwd = os.path.join(dir,sub_dir)
-            os.chdir(tmpcwd)
-            print(os.getcwd())
-
             # Get only file one level down in the subdirectory
-            file = files[0]
+
+            if files:
+
+                file = files[0]
+            else:
+                print(f'WARNING: no simulation run file in directory {sub_dir}')
 
             # If the file name is the same as one of the directories then get 
             # the ctrl_item information
             if file in list_of_files:
 
-                voltages = get_ctrl(file, dir, sub_dir, ctrl_type='value')
-        
+                # Generate absolute path to file that is names the same as the 
+                # directory
+                filename = os.path.join(sub_dir, file)
+
+                # Get voltages
+                voltages = get_ctrl(filename, ctrl_type='value')
+
             # Assign control values for the given simulation run
-            print(voltages)
             data_per_run['ctrl_names'] = voltages
-
-
-            # print('--------------------------------------------------------------')
-            # print(f'SUB_DIR: {sub_dir}')
-            # print('------------------------------------------------')
-            # print(f'BASE_DIR: {base_dir}')
-            # print('------------------------------------')
-            # print(f'FILES: {files}')
             
-            # Change the working directory to be the /output directory
-            os.chdir(os.path.join(tmpcwd,base_dir[0]))
-            print(os.getcwd())
-
             # Loop through the files under the /output directory
-            for _, _, nfiles in os.walk(os.path.join(sub_dir,base_dir[0])):
+            for data_sub, _, data_files in os.walk(os.path.join(sub_dir,base_dir[0])):
                 # Elect to display the files being imported from nextnano
                 if show_files == True:
                     print('Importing .coord and .dat data files from {}:'.format(
                         sub_dir.replace(str(dir),'')))
 
                 # Assign potential and coordinate data
-                for filename in nfiles:
+                for file in data_files:
 
-                    # filename = os.path.join(base_dir[0], file)
-                    print(f'FILENAME3: {filename}')
-
+                    # Generate absolute path to file
+                    filename = os.path.join(data_sub, file)
+                
                     if filename[-13:] == 'potential.dat':
                         data_per_run['ctrl_values'] = load_file(filename)
 
@@ -271,19 +255,6 @@ def import_dir(dir, nn_vars, show_files=False):
             # dictionaries
             data[count] = data_per_run
             count += 1
-
-            # return the working directory to the orginal
-            os.chdir(oldcwd)
-            print(os.getcwd())
-
-    print(data.keys())
-    # for i in range(len(data.keys())):
-    #     print(data[i].keys())
-    #     print(data[i]['ctrl_names'])
-    #     print(data[i]['ctrl_values'])
-    #     print(data[i]['coord'].keys())
-    #     print(data[i]['coord']['x'])
-    
     return data
 
 def get_ctrl_vals(nextnano_data):
@@ -550,12 +521,14 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
     # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
 
-    for sub_dir, _, _ in os.walk(input_dir_path):
+    for sub_dir, _, files in os.walk(input_dir_path):
 
-        # Parse voltage information for the directory one level higher
+        # Parse voltage information for the directory one level higher 607992052185
         # than /output
-        if sub_dir != input_dir_path and sub_dir[-6:] == 'output':
-            gates = parse_ctrl(sub_dir,'name')
+        # if sub_dir != input_dir_path and sub_dir[-6:] == 'output' and files:
+            # gates = parse_ctrl(sub_dir,'name')
+        if sub_dir != input_dir_path and sub_dir[-6:] != 'output' and files:
+            gates = get_ctrl(files[0], ctrl_type='name')
             break
 
     output_dir_path = output_dir_path + '_for_nearest_slice{:.3e}'.format(nearest_slice)
