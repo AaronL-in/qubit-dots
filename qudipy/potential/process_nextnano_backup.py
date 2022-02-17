@@ -116,47 +116,12 @@ def parse_ctrl(filename, ctrl_type):
             pass
     return ctrls
 
-def get_ctrl(filename, dir, sub_dir, ctrl_type):
-
-    ctrl_item = []
-    # oldcwd = os.getcwd()
-
-    # tmpcwd = os.path.join(dir,sub_dir)
-    # os.chdir(tmpcwd)
-
-    trig = 0
-    # Read voltage values
-    with open(filename, 'r') as f:
-        d = f.readlines()
-
-        for read_line in d:
-
-            if 'STARTING CALCULATION FOR BIAS POINT' in read_line:
-                trig = 1
-            elif trig == 1:
-                split_line = read_line.split()
-                trig = 0
-
-                list_len = np.shape(split_line)[0]
-                for i in range(list_len):
-                    
-                    if ctrl_type == 'value':
-                        if i % 3 == 0 and i != 0:
-                                ctrl_item.append(float(split_line[i-1]))
-                    elif ctrl_type == 'name':
-                        if i % 3 == 0 and i != 0:
-                                ctrl_item.append(split_line[i-2])
-
-    # os.chdir(oldcwd)
-    return ctrl_item
-
-
-def import_dir(dir, nn_vars, show_files=False):
+def import_dir(folder, show_files=False):
     '''
     Parameters
     ----------
-    dir : String
-        Name of the dir where nextnano files are stored
+    folder : String
+        Name of the folder where nextnano files are stored
 
 
     Keyword Arguments
@@ -181,18 +146,13 @@ def import_dir(dir, nn_vars, show_files=False):
 
     '''
 
-    # Collect the names of every subdirectory in the dir path
-    list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
-
-    # Append text document suffix on each string in the list
-    list_of_files = [string + '.txt' for string in list_subfolders_with_paths]
-
     # Dictionary which holds all of the simulation run data grouped by run
     data = {}
+
+    # Loop over all subdirectories, base directories (ignored), files in
+    # folder 
     count = 0   
-    # Loop over all sub_directories, base directories (ignored), files in
-    # dir 
-    for sub_dir, base_dir, files in os.walk(dir):
+    for subdir, _, files in os.walk(folder):
         
         # Dictionary containing run data i.e. voltages, potential, 3-tuple of
         # coordinates
@@ -206,84 +166,42 @@ def import_dir(dir, nn_vars, show_files=False):
                                     }
                         }
 
-        # First move into a subdirectory
-        if sub_dir != dir and base_dir == ['output']:
-            
-            # Track the control items
-            ctrl_item = []
+        # Parse voltage information for the directory one level higher than
+        # /output
 
-            # Change the working directory
-            oldcwd = os.getcwd()
-            print(os.getcwd())
+        # TODO : Standardize nextnano output directory/file structure and naming convention
+        if subdir != folder and subdir[-6:] == 'output':
+                
+            # Elect to display the files being imported from nextnano
+            if show_files == True:
+                print('Importing .coord and .dat data files from {}:'.format(
+                    subdir.replace(str(folder),'')))
 
-            tmpcwd = os.path.join(dir,sub_dir)
-            os.chdir(tmpcwd)
-            print(os.getcwd())
+            voltage = parse_ctrl(subdir,'value')
 
-            # Get only file one level down in the subdirectory
-            file = files[0]
+            # First append control values
+            data_per_run['ctrl_names'] = voltage
 
-            # If the file name is the same as one of the directories then get 
-            # the ctrl_item information
-            if file in list_of_files:
+            # Second append potential data
+            for file in files:
 
-                voltages = get_ctrl(file, dir, sub_dir, ctrl_type='value')
+                filename = os.path.join(subdir, file)
+
+                if filename[-13:] == 'potential.dat':
+                    data_per_run['ctrl_values'] = load_file(filename)
+
+            # Finally append coordinate data
+            for file in files:
+                filename = os.path.join(subdir, file)
+
+                if filename[-15:] == 'potential.coord':
+                    coord = load_file(filename)
+                    data_per_run['coord']['x'] = coord[0]
+                    data_per_run['coord']['y'] = coord[1]
+                    data_per_run['coord']['z'] = coord[2]
         
-            # Assign control values for the given simulation run
-            print(voltages)
-            data_per_run['ctrl_names'] = voltages
-
-
-            # print('--------------------------------------------------------------')
-            # print(f'SUB_DIR: {sub_dir}')
-            # print('------------------------------------------------')
-            # print(f'BASE_DIR: {base_dir}')
-            # print('------------------------------------')
-            # print(f'FILES: {files}')
-            
-            # Change the working directory to be the /output directory
-            os.chdir(os.path.join(tmpcwd,base_dir[0]))
-            print(os.getcwd())
-
-            # Loop through the files under the /output directory
-            for _, _, nfiles in os.walk(os.path.join(sub_dir,base_dir[0])):
-                # Elect to display the files being imported from nextnano
-                if show_files == True:
-                    print('Importing .coord and .dat data files from {}:'.format(
-                        sub_dir.replace(str(dir),'')))
-
-                # Assign potential and coordinate data
-                for filename in nfiles:
-
-                    # filename = os.path.join(base_dir[0], file)
-                    print(f'FILENAME3: {filename}')
-
-                    if filename[-13:] == 'potential.dat':
-                        data_per_run['ctrl_values'] = load_file(filename)
-
-                    if filename[-15:] == 'potential.coord':
-                        coord = load_file(filename)
-                        data_per_run['coord']['x'] = coord[0]
-                        data_per_run['coord']['y'] = coord[1]
-                        data_per_run['coord']['z'] = coord[2]
-            
-            # Assign every data set per simulation run to a single list of
-            # dictionaries
             data[count] = data_per_run
             count += 1
-
-            # return the working directory to the orginal
-            os.chdir(oldcwd)
-            print(os.getcwd())
-
-    print(data.keys())
-    # for i in range(len(data.keys())):
-    #     print(data[i].keys())
-    #     print(data[i]['ctrl_names'])
-    #     print(data[i]['ctrl_values'])
-    #     print(data[i]['coord'].keys())
-    #     print(data[i]['coord']['x'])
-    
     return data
 
 def get_ctrl_vals(nextnano_data):
@@ -550,12 +468,12 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
     # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
 
-    for sub_dir, _, _ in os.walk(input_dir_path):
+    for subdir, _, _ in os.walk(input_dir_path):
 
         # Parse voltage information for the directory one level higher
         # than /output
-        if sub_dir != input_dir_path and sub_dir[-6:] == 'output':
-            gates = parse_ctrl(sub_dir,'name')
+        if subdir != input_dir_path and subdir[-6:] == 'output':
+            gates = parse_ctrl(subdir,'name')
             break
 
     output_dir_path = output_dir_path + '_for_nearest_slice{:.3e}'.format(nearest_slice)
