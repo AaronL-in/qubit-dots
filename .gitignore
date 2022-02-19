@@ -1,9 +1,11 @@
-# Ignore no new tutorial data has been added
+# Ignore downloaded tutorial data to prevent slow push
 tutorials/QuDiPy tutorial data/
 QuDiPy tutorial data/
+
 *.ipynb_checkpoints
 animation_plot/
 testing.py
+
 # I use tutorials/test.py for testing purposes and don't want it tracked
 tutorials/test.py
 # I sometimes use the cProfile package in tutorial/test.py for code optimization
