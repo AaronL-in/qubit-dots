@@ -2,6 +2,8 @@
 Constant matrices used to define quantum gates
 @author: hromecB, zmerino
 '''
+from logging import warning
+import os
 import inspect
 import numpy as np
 
@@ -16,6 +18,41 @@ class Operator:
     '''
 
     ##### Operator Object Manipulation #####
+    
+    def check_name(self, filename=None):
+        '''
+        
+        Check that a file name for an object file has the correct extention,
+        and if not try to correct it or raise an error.
+        
+        Keyword Arguments
+        -----------------
+        filename: string
+            String that indicates the name of the existing object file which
+            contains a library of operators.
+
+        Returns
+        -------
+            String with '.npz' appended if no other file extension existed
+
+        '''
+
+        # Append '.npz' only if filename whas no file extension provided
+        if filename is not None:
+
+            # Seperate the file name from the file extension (if it exist)
+            _, ext = os.path.splitext(filename)
+
+            # If file extension exists
+            if ext:
+                # If file extension is not correct file type
+                if not filename.lower().endswith('.npz'):
+                    raise ValueError('File name has unexpected file extension.')
+            # If no file extension exists
+            elif not ext:
+                filename = f'{filename}.npz'
+        
+        return filename
 
     def __init__(self, operators=None, filename=None, f_type=None):
         '''
@@ -39,10 +76,8 @@ class Operator:
         # Initialize object attribute for later use
         self.is_unitary = None
 
-        # Append '.npz' if only the filename with out file type suffix
-        if filename is not None:
-            if filename[-4:] != '.npz':
-                filename = f'{filename}.npz'
+        # Check if the correct file type/name was given
+        filename = self.check_name(filename)
 
         # Set file name of object instance so multiple library objects
         # can be referenced
@@ -228,6 +263,10 @@ class Operator:
         None.
 
         '''
+
+        # Check if the correct file type/name was given
+        filename = self.check_name(filename)
+
         # Default name for operator library object file
         if filename is None:
             filename = 'Operator Library.npz'
@@ -253,6 +292,9 @@ class Operator:
             Dictionary containing operators.
 
         '''
+
+        # Check if the correct file type/name was given
+        filename = self.check_name(filename)
 
         # Load filename data object and convert to dictionary
         lib = dict(np.load(filename))

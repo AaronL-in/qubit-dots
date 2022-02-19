@@ -29,8 +29,7 @@ from qudipy.utils.constants import Constants
 consts = Constants("vacuum")       
 
 # Create operator object from object file
-# ops = matr.Unitary(operators={},filename='Unitary Operators.npz')
-ops = matr.Unitary(operators={},filename='Unitary Operators.npz')
+ops = matr.Operator(operators={},filename='Operator Library.npz')
 
 # Helper functions
 
@@ -86,7 +85,7 @@ def J_sigma_product(N, k1, k2):
     
     j_sigma_product_ = np.zeros((2 ** N, 2 ** N))
     if k1 != k2:
-         j_sigma_product_ = ops.sigma_product(N, k1, k2) / (4 * consts.hbar)  
+         j_sigma_product_ = ops.SIGMA_PRODUCT(N, k1, k2) / (4 * consts.hbar)  
     return j_sigma_product_ 
     
 def x_sum(N):
@@ -110,7 +109,7 @@ def x_sum(N):
         consts.muB/consts.hbar .
 
     """
-    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops.operators['PAULI_X']) for k in range(1, N+1))
+    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops['PAULI_X']) for k in range(1, N+1))
 
 def y_sum(N):
     """
@@ -133,7 +132,7 @@ def y_sum(N):
         by consts.muB / consts.hbar.
 
     """
-    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops.operators['PAULI_Y']) for k in range(1, N+1))
+    return consts.muB / consts.hbar * sum(ops.construct(N, k,ops['PAULI_Y']) for k in range(1, N+1))
 
 def z_sum_omega(N, B_0, f_rf):
     """
@@ -162,7 +161,7 @@ def z_sum_omega(N, B_0, f_rf):
 
     """
     return ((consts.muB * B_0 / consts.hbar - pi * f_rf)
-    * sum(ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)))
+    * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
 
 def z_sum_p(N, B_0, T, T_1):
     """
@@ -193,7 +192,7 @@ def z_sum_p(N, B_0, T, T_1):
 
     """
     return ((2 * p(B_0, T) - 1) / T_1 
-    * sum(ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)))
+    * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
     
 
 # List of dictionaries of constant matrices
@@ -245,12 +244,12 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
     const_dict_ = []
     for N in range(1,N_0+1):
         
-        Xs = [ops.construct(N, k,ops.operators['PAULI_X']) for k in range(1, N+1)]
-        Ys = [ops.construct(N, k,ops.operators['PAULI_Y']) for k in range(1, N+1)]
-        Zs = [ops.construct(N, k,ops.operators['PAULI_Z']) for k in range(1, N+1)]
+        Xs = [ops.construct(N, k,ops['PAULI_X']) for k in range(1, N+1)]
+        Ys = [ops.construct(N, k,ops['PAULI_Y']) for k in range(1, N+1)]
+        Zs = [ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)]
         
-        sigma_pluses = [ops.sigma_plus(N, k) for k in range(1, N+1)]
-        sigma_minuses = [ops.sigma_minus(N, k) for k in range(1, N+1)]
+        sigma_pluses = [ops.SIGMA_PLUS(N, k) for k in range(1, N+1)]
+        sigma_minuses = [ops.SIGMA_MINUS(N, k) for k in range(1, N+1)]
         
         J_sigma_products = [[J_sigma_product(N, k1, k2) for k2 in 
                                      range(1, N+1)] for k1 in range(1, N+1)] 
@@ -803,11 +802,11 @@ class SpinSys:
                 ret_dict[subm] = submatrix
                 if eval_Bloch_vectors:
                     ret_dict["sigma_x_{}".format(qub)] = np.trace(submatrix 
-                        @ ops.operators['PAULI_X'])
+                        @ ops['PAULI_X'])
                     ret_dict["sigma_y_{}".format(qub)] = np.trace(submatrix 
-                        @ ops.operators['PAULI_Y'])
+                        @ ops['PAULI_Y'])
                     ret_dict["sigma_z_{}".format(qub)] = np.trace(submatrix 
-                        @ ops.operators['PAULI_Z'])
+                        @ ops['PAULI_Z'])
                 
         return ret_dict
             
