@@ -5,10 +5,6 @@
 animation_plot/
 testing.py
 
-# Ignore local vscode settings
-.vscode/
-settings.json
-
 # I use tutorials/test.py for testing purposes and don't want it tracked
 tutorials/test.py
 # I sometimes use the cProfile package in tutorial/test.py for code optimization
