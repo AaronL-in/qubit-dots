@@ -16,6 +16,9 @@ tutorials/output_time.txt
 tutorials/qudipy
 test_buddy*.py
 
+# Ignore any text file that contains alternate simulator names
+names.txt
+
 *.pyc
 __pycache__/
 *.csv
