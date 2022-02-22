@@ -4,7 +4,7 @@ Constants class
 @author: simba, zach
 """
 from scipy import constants
-
+import numpy as np
 
 class Constants:
     
@@ -36,7 +36,7 @@ class Constants:
         # Planck's constant [J*s]
         self.h = constants.h
         # Reduced Planck's constant [J*s]              
-        self.hbar = constants.hbar
+        self.hbar = constants.hbar   
         # Electron charge [C]
         self.e = constants.e
         # Free electron mass [kg]
@@ -44,11 +44,12 @@ class Constants:
         # Speed of light [m/s]
         self.c = constants.c
         # Bohr magneton [J/T]
-        self.muB = constants.physical_constants['Bohr magneton']
+        self.muB = constants.physical_constants['Bohr magneton'][0]
         # Vacuum permitivity [F/m]
         self.eps0 = constants.epsilon_0
         # Boltzmann constant [J/K]
-        self.kB = constants.physical_constants['Boltzmann constant']
+        self.kB = constants.physical_constants['Boltzmann constant'][0]
+
 
 
 

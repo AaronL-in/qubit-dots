@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(__file__ ,"../../..")))
 import qudipy.utils.helpers as hp
 import numpy as np
 import pandas as pd
-import re
+from scipy import constants
 
 def load_file(filename):
     '''
@@ -323,9 +323,10 @@ def reshape_field(potential, x, y, z, f_type, slice=None, show_z=None):
     Parameters
     ----------
     potential : Array
-        An array conaining all of the potential data for the x,y, and z coordinates.
+        An array conaining all of the electrostatic potential data for the
+        x, y, and z coordinates using the units V/m.
 
-    x,y,z : List
+    x, y, z : List
         Coordinates for the potential data contained in the 1d potential array.
 
     f_type : List
@@ -365,11 +366,13 @@ def reshape_field(potential, x, y, z, f_type, slice=None, show_z=None):
     pot3DArray = np.reshape(potential,(xsize,ysize,zsize), order='F')
 
     if f_type.lower() in ['field', 'electric', 'ez']:
+
+        # Calculate the gradient of the electrostatic potential for the 3D data
         gradient = np.gradient(pot3DArray,x,y,z)[-1]
 
-
-        field2DArray = gradient[:, :, index]
-        # field2DArray = - (1/)gradient[:, :, index]
+        # Compute the electric field from the electrostatic potential gradient
+        # for the given z-slice along the given array index.
+        field2DArray = - gradient[:, :, index]
 
     elif f_type.lower() in ['pot', 'potential', 'uxy']:
         field2DArray = pot3DArray[:, :, index]
@@ -448,7 +451,7 @@ def xy_pot(potential, gates, slice, f_type, output_dir_path=None, save=None):
         # Insert x,y, and potential 2D slice into array
         coords_and_pot[1:,0] = potential_copy[i]['coord']['x']
         coords_and_pot[0,1:] = potential_copy[i]['coord']['y']
-        coords_and_pot[1:,1:] = -1*potential2D
+        coords_and_pot[1:,1:] = potential2D
 
         # Transpose array to make the y-axis data run row wise and x-axis data
         # run column wise.

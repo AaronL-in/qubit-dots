@@ -9,7 +9,7 @@ write-up **before** familiarizing yourself with this code:
 
 @author: bkhromet
 """
-
+import os
 import numpy as np
 
 from math import pi, log2, exp, sin, cos, inf
@@ -28,6 +28,8 @@ from qudipy.utils.constants import Constants
 # effective mass or dielectric constant do not matter for spin simulations;
 consts = Constants("vacuum")       
 
+
+print(f'SPIN: {os.getcwd()}')
 # Create operator object from object file
 ops = matr.Operator(operators={},filename='Operator Library.npz')
 
