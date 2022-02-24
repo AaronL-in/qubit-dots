@@ -28,8 +28,6 @@ from qudipy.utils.constants import Constants
 # effective mass or dielectric constant do not matter for spin simulations;
 consts = Constants("vacuum")       
 
-
-print(f'SPIN: {os.getcwd()}')
 # Create operator object from object file
 ops = matr.Operator(operators={},filename='Operator Library.npz')
 
