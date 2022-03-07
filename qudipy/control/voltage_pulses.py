@@ -154,7 +154,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         rot_pulse.add_control_variable(var_name= 'V_{ind}'.format(ind = i), 
                                     var_pulse=np.full(num_val, v_offset))
     # adding in active qubits variable
-    setattr(rot_pulse, 'active', active_qubits) #TODO figure out why .set_active isn't working in ControlPulse Class
+    setattr(rot_pulse, 'active', active_qubits) 
 
     # values of normalized time and pulse
     tau = np.linspace(0, 1, num_val)
@@ -229,63 +229,55 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
             n_x = n_x/norm
             n_y = n_y/norm
             n_z = n_z/norm
-            
-        axis = [n_x, n_y, n_z]
         
-        def delta_g_arbitraryROT(unit_rotation_axis, active, theta, v_unit_shape):
+        def find_shape(active = True):
             '''
-            Calculates delta_g as a function of the shape function for resonant 
-            (active) and non-resonant (inactive) qubits
-            
-            Parameters:
-            -------------
-            unit_rotation_axis: iterable of length 3
-                The Bloch vector axis of rotation
-            active: Boolean 
-                if True, the function will return delta_g for resonant qubits, 
-                otherwise, it returns delta_g for non-resonant qubits
-            theta: Float
-                angle of rotation in radians
-            v_unit_shape: function
-                function describing the unitary voltage shape of the pulse
+            Calculates the shape function given that the qubit is
+            resonant (active) or non-resonant (inactive) for T = 1
 
-            Returns:
-            -------------
-            iterable of length num_val 
+            Parameters
+            ----------------
+            active: boolean
+                is True when the qubit is active, False when the qubit is inactive
+
+            Returns
+            ---------------
+            List 
+                contains all of the values of the shape
             '''
-            omega = e / m_e * B_0 #Larmor Frequency
-            tau = np.linspace(0,1,num_val)
-            n_x = unit_rotation_axis[0]
-            n_y = unit_rotation_axis[1]
-            n_z = unit_rotation_axis[2]
-            
-            delta_g = []
-            v_shape_vals = v_unit_shape(tau)
+            delta_g_diff = np.array(delta_g_pulse - delta_g_0)
             if active:
-                parameter = (2 * n_z * theta)/omega
-                for v in v_shape_vals:
-                    delta_g.append(v * parameter)
-                return delta_g
+                param = (2 * n_z * theta_rad)/omega
+                return delta_g_diff / param
+            
             else:
-                parameter = (2/omega) * np.sqrt(4 * np.pi**2 - theta**2 * 
+                param = (2/omega) * np.sqrt(4 * np.pi**2 - theta_rad**2 * 
                                                             (n_x**2 + n_y**2))
-                for v in v_shape_vals:
-                    delta_g.append(v * parameter)
-                return delta_g
+                return delta_g_diff / param
+    
+        # Find Shape
+        if n_z == 1:
+            S = find_shape(active = True) #get shape
+        else:
+            S = find_shape(active = False) #get shape
         
+        # sign of pulse shape
+        shape_sign = []
+        for s in S:
+            if s < 0:
+                shape_sign.append(-1)
+            else:
+                shape_sign.append(1)
         
         #determine the phase values during the pulse -> list of phi's
         phis = np.zeros(num_val)
-        for i in range(0,num_val):
-            t = tau[i]
-            if v_unit_shape(t) > 0:
-                phi = np.arctan2(n_y, n_x)
+        for i, s in enumerate(shape_sign):
+            if s > 0:
+                phi = np.arctan2(n_y, n_x) * (180 / np.pi)
             else:
-                phi = np.arctan2(n_y * -1, n_x * -1)
+                phi = np.arctan2(n_y * -1, n_x * -1) * (180 / np.pi)
             phis[i] = phi
-            
-        rot_pulse.add_control_variable("phi", phis)
-        # add phi's to the control variable
+        rot_pulse.add_control_variable("phi", phis)# add phi's to the control variable
         
         
         #Calculate time of pulse for the rotation
@@ -298,38 +290,40 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         
         
         #Add ESR frequency into the Control Pulse
-        v_shape_vals = v_unit_shape(tau)
-        v_shape_sign = []
-        for t in tau:
-            if v_unit_shape(t) < 0:
-                v_shape_sign.append(-1)
-            else:
-                v_shape_sign.append(1)
-        
         omega_capital = []
-        B_rf =[]
-        parameter = abs(theta_rad) * np.sqrt(n_x**2 + n_y**2) #saves calculation time
-        for i in range(len(tau)):
-            omega_capital_tau = (v_shape_vals[i] / T[i]) * parameter * v_shape_sign[i]
-            omega_capital.append(omega_capital_tau)
-            b_rf = m_e / e * omega_capital[i]
-            B_rf.append(b_rf)
-        rot_pulse.add_control_variable('B_rf', B_rf)
+        parameter = abs(theta_rad) * np.sqrt(n_x**2 + n_y**2) * m_e / e #saves calculation time
+        for i, s in enumerate(S):
+            omega_capital.append(s * parameter * shape_sign[i])
+        rot_pulse.add_control_variable("B_rf", omega_capital)# add ESR frequency to the control variable
         
-        #Update the Control Pulse Object
-        d_g_active = delta_g_arbitraryROT(axis, True, theta_rad, v_unit_shape) 
-        d_g_inactive = delta_g_arbitraryROT(axis, False, theta_rad, v_unit_shape) 
+        
+        
+        # ** Update the Control Pulse Object **
+        # find dg+ - dg0 
+        d_g_active = []
+        parameter = (2 * n_z * theta_rad)/omega
+        for s in S:
+            d_g_active.append(s * parameter)
+        
+        #find dg- - dg0
+        d_g_inactive= []
+        parameter = (2/omega) * np.sqrt(4 * np.pi**2 - theta_rad**2 * 
+                                                    (n_x**2 + n_y**2))
+        for s in S:
+            d_g_inactive.append(s * parameter)
 
         for i in active_qubits: 
             rot_pulse.ctrl_pulses['delta_g_{ind}'.format(ind = i)] = d_g_active
-            rot_pulse.ctrl_pulses['V_{ind}'.format(ind = i)] = v_pulse
+            if n_z == 1:
+                rot_pulse.ctrl_pulses['V_{ind}'.format(ind = i)] = v_pulse
 
         for i in idle_qubits:
             rot_pulse.ctrl_pulses['delta_g_{ind}'.format(ind = i)] = d_g_inactive
-            rot_pulse.ctrl_pulses['V_{ind}'.format(ind = i)] = v_pulse
+            if n_z != 1:
+                rot_pulse.ctrl_pulses['V_{ind}'.format(ind = i)] = v_pulse
 
     
-    # finally, specifying the correct time values for the pulse and returning it
+    # finally, specify the correct time values for the pulse and returning it
     rot_pulse.add_control_variable('time', tau * T)
     
     return rot_pulse
@@ -438,7 +432,7 @@ def create_ctlp_file(CntrlPulse, read = False, get_dir = False):
 
 
 
-def create_create_quantum_circuit(list_ctrlp, circuit_name, write_qcirc = False, print_dir = False):
+def create_quantum_circuit(list_ctrlp, circuit_name, write_qcirc = False, print_dir = False):
     '''
     @author: Madi
 
