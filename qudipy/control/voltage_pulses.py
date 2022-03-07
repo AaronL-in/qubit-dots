@@ -232,6 +232,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         
         def find_shape(active = True):
             '''
+            @author: Madi
             Calculates the shape function given that the qubit is
             resonant (active) or non-resonant (inactive) for T = 1
 
@@ -298,7 +299,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         
         
         
-        # ** Update the Control Pulse Object **
+        # * Update the Control Pulse Object *
         # find dg+ - dg0 
         d_g_active = []
         parameter = (2 * n_z * theta_rad)/omega
