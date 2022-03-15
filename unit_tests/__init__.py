@@ -1,2 +1,7 @@
+"""
+Created on Thu Jan  6 12:43:00 2022
 
-from . import test_control
+@author: Zach
+"""
+
+from . import qutils_test, test_control
