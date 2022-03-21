@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-
 Script for calculating spin evolution.
-
 I strongly recommend that you read the "Spin simulator" chapter of the 
 write-up **before** familiarizing yourself with this code:
     https://www.overleaf.com/project/5f4fcbdd5566fb0001f3b6aa
-
 @author: bkhromet
 """
 
@@ -27,14 +24,12 @@ from scipy import constants as consts
 muB = consts.physical_constants[u'Bohr magneton'][0]
 kB = consts.Boltzmann
 
-# Material system is chosen to be vacuum by default because such parameters as 
-# effective mass or dielectric constant do not matter for spin simulations;
-consts = Constants("vacuum")       
 
-# Create operator object from object file
-ops = matr.Operator(operators={},filename='Operator Library.npz')
+#material system is chosen to be vacuum by default because such parameters as 
+#effective mass or dielectric constant do not matter for spin simulations;
+   
 
-# Helper functions
+#helper functions
 
 def p(B_0, T):
     """
@@ -56,12 +51,13 @@ def p(B_0, T):
     -------
     p_ : float
         Population of the spin-up state.
-
     """
     p_ = 0
     if T > 1e-2:
         p_ = 1 / (exp (2 * muB * B_0 / (kB * T)) + 1)
     return p_
+
+    
 
 def J_sigma_product(N, k1, k2):
     """
@@ -88,7 +84,7 @@ def J_sigma_product(N, k1, k2):
     
     j_sigma_product_ = np.zeros((2 ** N, 2 ** N))
     if k1 != k2:
-         j_sigma_product_ = ops.SIGMA_PRODUCT(N, k1, k2) / (4 * consts.hbar)  
+         j_sigma_product_ = matr.sigma_product(N, k1, k2) / (4 * consts.hbar)  
     return j_sigma_product_ 
     
 def x_sum(N):
@@ -110,7 +106,6 @@ def x_sum(N):
     : 2D complex array
         Sum of X_k-matrices for all k in [1,N] weighted by
         muB/consts.hbar .
-
     """
     return muB / consts.hbar * sum(matr.x(N, k) for k in range(1, N+1))
 
@@ -134,7 +129,6 @@ def y_sum(N):
     : 2D complex array
         Sum of Y_k-matrices for all k in[1,N] weighted 
         by muB / consts.hbar.
-
     """
     return muB / consts.hbar * sum(matr.y(N, k) for k in range(1, N+1))
 
@@ -153,7 +147,6 @@ def z_sum_omega(N, B_0, f_rf):
         Zeeman field [T].
     f_rf : float
         Frequency of the ESR field [Hz].
-
     Keyword Arguments
     -----------------
     None.
@@ -163,11 +156,10 @@ def z_sum_omega(N, B_0, f_rf):
     : 2D complex array
         Sum of Z_k-matrices for all k in [1,N] 
         weighted by i(omega - omega_rf)/2.
-
     """
+    return ((muB * B_0 / consts.hbar - pi * f_rf)
+                * sum(matr.z(N, k) for k in range(1, N+1)))
 
-    return ((consts.muB * B_0 / consts.hbar - pi * f_rf)
-    * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
 
 def z_sum_p(N, B_0, T, T_1):
     """
@@ -194,14 +186,12 @@ def z_sum_p(N, B_0, T, T_1):
     -------
     : 2D complex array
         Sum of Z_k-matrices for all k in [1,N] weighted by (2*p(B_0,T)-1) / T_1
-
-
     """
-    return ((2 * p(B_0, T) - 1) / T_1 
-    * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
+    return (2 * p(B_0, T) - 1) / T_1 * sum(matr.z(N, k) for k in range(1, N+1))
     
 
-# List of dictionaries of constant matrices
+#list of dictionaries of constant matrices
+
 
 def const_dict(N_0, T, B_0, f_rf, T_1):
     """
@@ -224,7 +214,6 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
     -----------------
     None.
     
-
     Returns 
     -------
     const_dict_: list of dicts
@@ -233,8 +222,8 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
         - "Xs" - list of X_k
         - "Ys" - list of Y_k
         - "Zs" - list of Z_k
-        - "sigma_pluses" - array of ops.sigma_plus_k_l
-        - "sigma_minuses" - list of ops.sigma_minus_k
+        - "sigma_pluses" - array of matr.sigma_plus_k_l
+        - "sigma_minuses" - list of matr.sigma_minus_k
         - "J_sigma_products" - (symmetric) matrix of 
             (\frac{1}{4 * \hbar} \vec{sigma_k1} \cdot \vec{sigma_k2})
         - "x_sum" (multiplied by muB/consts.hbar)
@@ -250,12 +239,12 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
     const_dict_ = []
     for N in range(1,N_0+1):
         
-        Xs = [ops.construct(N, k,ops['PAULI_X']) for k in range(1, N+1)]
-        Ys = [ops.construct(N, k,ops['PAULI_Y']) for k in range(1, N+1)]
-        Zs = [ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)]
+        Xs = [matr.x(N, k) for k in range(1, N+1)]
+        Ys = [matr.y(N, k) for k in range(1, N+1)]
+        Zs = [matr.z(N, k) for k in range(1, N+1)]
         
-        sigma_pluses = [ops.SIGMA_PLUS(N, k) for k in range(1, N+1)]
-        sigma_minuses = [ops.SIGMA_MINUS(N, k) for k in range(1, N+1)]
+        sigma_pluses = [matr.sigma_plus(N, k) for k in range(1, N+1)]
+        sigma_minuses = [matr.sigma_minus(N, k) for k in range(1, N+1)]
         
         J_sigma_products = [[J_sigma_product(N, k1, k2) for k2 in 
                                      range(1, N+1)] for k1 in range(1, N+1)] 
@@ -269,6 +258,7 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
                                 "z_sum_p":z_sum_p(N, B_0, T, T_1)})
     
     return const_dict_
+
 
 class SpinSys:
     """
@@ -352,23 +342,19 @@ class SpinSys:
         Returns
         -------
         None.
-
         """
         def __is_power_2(num):
             """
             Hidden function that checks if the integer number is an integer
             power of 2 
-
             Parameters
             ----------
             num : int
                 Integer to be checked.
-
             Returns
             -------
             ispower2 : bool
                 True if num is a power of 2, False otherwise
-
             """
             while (num % 2 == 0):  
                 num = num / 2
@@ -438,7 +424,6 @@ class SpinSys:
     def hamiltonian(self, const_dict_N, pulse_params=None):
         """
         Builds the system Hamiltonian at a particular point of time.
-
         Parameters
         ----------
         const_dict_N: dictionary
@@ -450,12 +435,10 @@ class SpinSys:
              Dictionary of values of delta_g[i], 
              J[i], B_rf taken at a particular point of time. 
              The default is None interpreted as 'no pulse'
-
         Returns
         -------
         ham: 2D complex array
             Array that represents the Hamiltonian.
-
         """
         ham = const_dict_N["z_sum_omega"].copy()
                 #copy is in order not to modify the const_dict_N entries; 
@@ -509,7 +492,6 @@ class SpinSys:
         """
         Creates right-hand side of the Lindblad equation at a particular
         point of time
-
         Parameters
         ----------
         rho_mod: 2D complex array 
@@ -517,19 +499,16 @@ class SpinSys:
             Runge-Kutta method is used for.
         const_dict_N: dictionary
             Dictionary of constant matrices 2**N x 2**N.
-
         Keyword Arguments
         -----------------
         pulse_params : dictionary, optional
              Dictionary of values of delta_g[i], J[i], B_rf taken at a 
              particular point of time. 
              The default is None interpreted as 'no pulse'.
-
         Returns
         -------
         lin : 2D complex array
             the right-hand side of the Lindblad equation
-
         """
         N = int(log2(const_dict_N["x_sum"].shape[0])) 
             #automatically calculating the size
@@ -560,7 +539,6 @@ class SpinSys:
         """
         Function that performs spin system evolution under the external pulse,
         i.e. updates the system density matrix.
-
         Parameters
         ----------
         pulses : ControlPulse object, or tuple/list of such objects
@@ -618,7 +596,6 @@ class SpinSys:
               "sigma_z_{i}" : 1D float array
                   Bloch vector components of the i-th electron, if i
                   is in track_qubits iterable, and eval_Bloch_vectors is True.
-
         """
         ret_dict = {}    #dictionary to be returned 
               
@@ -754,12 +731,12 @@ class SpinSys:
 
         return ret_dict
 
-    #### called when optional parameters of 'evolve' are specified as True ####
+
+###### called when optional parameters of 'evolve' are specified as True ######
    
     def track_subsystem(self, track_qubits=None, eval_Bloch_vectors=False):
         """
         Gives the specified system submatrices and Bloch vectors (if tracked)
-
         Parameters
         ----------
         None.
@@ -776,7 +753,6 @@ class SpinSys:
         ret_dict: dictionary of numpy arrays
             Dictionary containing subsystem density matrices, and their 
             Bloch vectors if specified.
-
         """
         ret_dict = {}
         
@@ -796,25 +772,22 @@ class SpinSys:
             raise ValueError("The tracked qubits should be properly specified"  
                              "by an int or an iterable of ints. None of the"  
                                  "qubits has been tracked")
-        else:
-            if ifint:
-                trqub = {track_qubits}
-            if ifiterable :
-                trqub = set(track_qubits) 
+       
+        if ifint:
+            trqub = {track_qubits}
+        if ifiterable :
+            trqub = set(track_qubits) 
 
-            for qub in trqub:
-                submatrix = qmath.partial_trace(self.rho, (Nset-{qub}))
-                subm = "submatrix_{}".format(qub)
-                ret_dict[subm] = submatrix
-                if eval_Bloch_vectors:
-                    ret_dict["sigma_x_{}".format(qub)] = np.trace(submatrix 
-                        @ ops['PAULI_X'])
-                    ret_dict["sigma_y_{}".format(qub)] = np.trace(submatrix 
-                        @ ops['PAULI_Y'])
-                    ret_dict["sigma_z_{}".format(qub)] = np.trace(submatrix 
-                        @ ops['PAULI_Z'])
+        for qub in trqub:
+            submatrix = qmath.partial_trace(self.rho, (Nset-{qub}))
+            subm = "submatrix_{}".format(qub)
+            ret_dict[subm] = submatrix
+            if eval_Bloch_vectors:
+                ret_dict["sigma_x_{}".format(qub)] = np.trace(submatrix 
+                                                            @ matr.PAULI_X)
+                ret_dict["sigma_y_{}".format(qub)] = np.trace(submatrix 
+                                                            @ matr.PAULI_Y)
+                ret_dict["sigma_z_{}".format(qub)] = np.trace(submatrix 
+                                                            @ matr.PAULI_Z)
                 
         return ret_dict
-            
-            
-        
