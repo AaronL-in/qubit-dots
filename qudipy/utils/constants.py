@@ -1,8 +1,10 @@
 """
 Constants class
 
-@author: simba
+@author: simba, zach
 """
+from scipy import constants
+import numpy as np
 
 class Constants:
     
@@ -24,19 +26,33 @@ class Constants:
         # Default units are SI [International system]
         self.units = "SI"
         
-        # Mathematical constants
-        self.pi = 3.141592653589793         # pi
-        
-        # Physical constants
-        self.h = 6.62607015E-34              # Planck's constant [J*s]
-        self.hbar = self.h/(2*self.pi)      # Reduced Planck's constant [J*s]
-        self.e = 1.602176634E-19          # electron charge [C]
-        self.m0 = 9.10938356E-31            # free electron mass [kg]
-        self.c = 2.99792458E8               # speed of light [m/s]
-        self.muB = 9.274009994E-24          # Bohr magneton [J/T]
-        self.eps0 = 8.85418782E-12          # Vacuum permitivity [F/m]
-        self.kB = 1.380649E-23              # Boltzmann constant [J/K]
-                  
+        ### Mathematical constants ###
+
+        # Pi
+        self.pi = constants.pi         
+
+        ### Physical constants ###
+
+        # Planck's constant [J*s]
+        self.h = constants.h
+        # Reduced Planck's constant [J*s]              
+        self.hbar = constants.hbar   
+        # Electron charge [C]
+        self.e = constants.e
+        # Free electron mass [kg]
+        self.m0 = constants.m_e
+        # Speed of light [m/s]
+        self.c = constants.c
+        # Bohr magneton [J/T]
+        self.muB = constants.physical_constants['Bohr magneton'][0]
+        # Vacuum permitivity [F/m]
+        self.eps0 = constants.epsilon_0
+        # Boltzmann constant [J/K]
+        self.kB = constants.physical_constants['Boltzmann constant'][0]
+
+
+
+
         # Material system constants
         # Supported material systems include [Si/SiO2, Si/SiGe, GaAs, air]
         self.material_system = material_system

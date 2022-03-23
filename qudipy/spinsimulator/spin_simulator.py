@@ -9,7 +9,7 @@ write-up **before** familiarizing yourself with this code:
 
 @author: bkhromet
 """
-
+import os
 import numpy as np
 
 from math import pi, log2, exp, sin, cos, inf

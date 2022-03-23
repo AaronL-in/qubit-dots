@@ -107,8 +107,9 @@ class PotentialInterpolator:
         
         # Make a list where each element in the list contains the grid points
         # for each respective control variable
-        volt_vec = list(np.array(volt_vec_input).T)
-                        
+
+        volt_vec = list(np.array(volt_vec_input, dtype=object).T)
+                 
         # First check if the singleton dimensions were included in volt_vec
         # and remove if so
         # if True ==> they were NOT included
