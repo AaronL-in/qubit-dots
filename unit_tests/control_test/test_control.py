@@ -13,7 +13,7 @@ from random import random
 
 # import qudipy modules
 from qudipy.control import shapes
-from qudipy.starkshift import starkshit
+from qudipy.starkshift import starkshift
 from qudipy.control.voltage_pulses import balance_zeeman, rot
 
 
