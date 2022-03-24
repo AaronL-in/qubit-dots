@@ -4,6 +4,7 @@ them.
 
 @author: simba
 """
+import os
 
 import numpy as np
 import pandas as pd
@@ -141,8 +142,8 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     f_type : string, optional
         Type of file to load (either potential or electric field). Acceptable 
         case insensitive arguments include the strings 
-        ['pot','potential','uxy','electric','field','ez'].
-        Default is potential. The default is 'pot'
+        ['pot','potential','uxy','electric','field','ez'].The default
+        is 'pot' (potential).'
     f_dir : string, optional
         Path to find files specified by ctrl_vals and ctrl_names. The 
         default is the current working directory.
@@ -205,7 +206,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # list containing information about all the loaded files.
 
         # Load file
-        data = pd.read_csv(f_dir+f_name, header=None).to_numpy()
+        data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
         
         # Extract items
         x = data[0,1:]

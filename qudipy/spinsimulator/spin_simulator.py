@@ -6,7 +6,7 @@ write-up **before** familiarizing yourself with this code:
     https://www.overleaf.com/project/5f4fcbdd5566fb0001f3b6aa
 @author: bkhromet
 """
-
+import os
 import numpy as np
 
 from numpy import pi, log2, exp, sin, cos, inf

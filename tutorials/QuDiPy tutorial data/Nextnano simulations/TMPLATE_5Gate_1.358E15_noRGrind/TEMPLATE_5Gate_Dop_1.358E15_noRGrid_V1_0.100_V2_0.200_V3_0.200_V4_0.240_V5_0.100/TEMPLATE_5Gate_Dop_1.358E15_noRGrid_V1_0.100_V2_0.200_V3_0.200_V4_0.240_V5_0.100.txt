@@ -1,0 +1,153 @@
+
+00:00:00 ================================================================================
+00:00:00  STARTING...
+00:00:00 ================================================================================
+00:00:00 Starting execution as:
+00:00:00 C:\Program Files\nextnano\2020_04_14\nextnano++\bin 64bit\nextnano++_Intel_64bit.exe --license C:\Users\kswillic\Documents\nextnano\License\License_nnp.lic --database C:\Program Files\nextnano\2020_04_14\nextnano++\Syntax\database_nnp.in --threads 1 --outputdirectory C:\Users\kswillic\Documents\nextnano\Output\5GateSimulation --noautooutdir C:\Users\kswillic\Desktop\Zach\Nextnano\Francois\5GateSimulation.in 
+00:00:00 
+00:00:00 nextnano++ (1.6.24 - 2020.031001) Apr  9 2020
+00:00:00 =============================================================================
+00:00:00 COPYRIGHT NOTICE                                                             
+00:00:00 =============================================================================
+00:00:00 Please read the file 'copyright_nextnano++.txt' in your installation folder  
+00:00:00 for further information about the terms of copyright of the nextnano++ code  
+00:00:00 and of third party source codes and libraries used in the nextnano++ code.   
+00:00:00                                                                              
+00:00:00 In case this file is missing or seems incomplete or corrupted, please contact
+00:00:00 nextnano GmbH, Germany by submitting a support request on www.nextnano.de or 
+00:00:00 by sending an email to support@nextnano.com in order to receive a new copy.  
+00:00:00                                                                              
+00:00:00 ANY USE OF THE NEXTNANO++ CODE CONSTITUTES ACCEPTANCE OF THE TERMS OF THE    
+00:00:00 COPYRIGHT NOTICE.                                                            
+00:00:00 =============================================================================
+00:00:00 
+00:00:00 
+00:00:00 =============================================================================
+00:00:00  PROCESSING FILE: C:\Users\kswillic\Desktop\Zach\Nextnano\Francois\5GateSimulation.in
+00:00:00 =============================================================================
+00:00:00 
+00:00:00 Start time: Wed 2022-01-19, 14:27:52 (-0500)
+00:00:00 
+00:00:00 Process uses 1 of 4 available OpenMP threads.
+00:00:00 
+00:00:00 Preparing input validator...
+00:00:00 Reading input file (C:\Users\kswillic\Desktop\Zach\Nextnano\Francois\5GateSimulation.in)...
+00:00:00 
+00:00:00 WARNING: Using database specified in command line.
+00:00:00 
+00:00:00 Preparing database validator...
+00:00:00 Reading database file (C:\Program Files\nextnano\2020_04_14\nextnano++\Syntax\database_nnp.in)...
+00:00:00 
+00:00:00 	 Valid From: 2020-2-11 To: 2022-2-21
+00:00:00 	 Licensed to: E-mail: zbig.wasilewski@uwaterloo.ca-2022-02-21-v9es
+00:00:00 
+00:00:00 ********* SETUP SIMULATION *****************************************************
+00:00:00 
+00:00:00 ********* Simulation Grid *********
+00:00:00 
+00:00:00 Creating grid 1 using:
+00:00:00     pos = -160     	spacing = 4
+00:00:00     pos = -145     	spacing = 4
+00:00:00     pos = -141     	spacing = 2
+00:00:00     pos = 139     	spacing = 2
+00:00:00     pos = 141     	spacing = 4
+00:00:00     pos = 160     	spacing = 4
+00:00:00 
+00:00:00 Creating grid 2 using:
+00:00:00     pos = -70     	spacing = 4
+00:00:00     pos = -25     	spacing = 4
+00:00:00     pos = -21     	spacing = 2
+00:00:00     pos = 19     	spacing = 2
+00:00:00     pos = 21     	spacing = 4
+00:00:00     pos = 120     	spacing = 4
+00:00:00 
+00:00:00 Creating grid 3 using:
+00:00:00     pos = -70     	spacing = 10
+00:00:00     pos = -30     	spacing = 10
+00:00:00     pos = -20     	spacing = 2
+00:00:00     pos = 25     	spacing = 2
+00:00:00     pos = 27     	spacing = 5
+00:00:00     pos = 85     	spacing = 5
+00:00:00 
+00:00:00 Grid dimension: 152 * 59 * 42 = 
+00:00:00 Number of unique grid points: 376656
+00:00:00 
+00:00:00 
+00:00:00 ********* Rotation Matrix *********
+00:00:00  1.0000000,  0.0000000,  0.0000000
+00:00:00  0.0000000,  1.0000000,  0.0000000
+00:00:00  0.0000000,  0.0000000,  1.0000000
+00:00:00 
+00:00:00 ********* Periodicity *************
+00:00:00  0-direction:  not periodic
+00:00:00  1-direction:  not periodic
+00:00:00  2-direction:  not periodic
+00:00:00 Start initializing structure.
+00:00:00 Finished initializing structure.
+00:00:00 Structure initialization time: 0.124[s]
+00:00:00 
+00:00:00 NOTE: Electron minimum density is 1e+10 cm^-3.
+00:00:00 
+00:00:00 NOTE: Hole minimum density is 1e+10 cm^-3.
+00:00:00 
+00:00:00 NOTE: Electron maximum density is 1e+30 cm^-3.
+00:00:00 
+00:00:00 NOTE: Hole maximum density is 1e+30 cm^-3.
+00:00:00 
+00:00:00 ***** Quantum Subgrid ******     
+00:00:00 Gridsize: 
+00:00:00 Grid dimension: 152 * 59 * 11 = 
+00:00:00 Number of unique grid points: 98648
+00:00:00 
+00:00:00 
+00:00:00 ********* STRUCTURE OUTPUT *****************************************************
+00:00:01 
+00:00:01 ********* START CALCULATION ****************************************************
+00:00:01 
+00:00:01 Determine dirichlet points from contacts...
+00:00:02 Intrinsic charge time: 1.375[s]
+00:00:02 
+00:00:02 Discretizing Poisson equation...
+00:00:03 
+00:00:03 
+00:00:03 ========= STARTING CALCULATION FOR BIAS POINT ==================================
+00:00:03 V1 0.1 V   V2 0.2 V   V3 0.2 V   V4 0.24 V    V5 0.1 V   
+00:00:03 
+00:00:03 Determine Fermi level dirichlet values in contacts...
+00:00:03 Initialize Fermi levels...
+00:00:03     cg started:   1.000000000000000E-013  1.000000000000000E-030        1000
+00:00:03        initial error:   0.907497873790943     
+00:00:04     cg matmuls:          148
+00:00:04     cg residual (rel,abs):   6.260743420633535E-014  5.681611342575567E-014
+00:00:04 Fermi level initialization time: 1.828[s]
+00:00:04 Initialize contacts as charge neutral...
+00:00:05 Determine potential Dirichlet values in Schottky and ohmic contacts...
+00:00:05 Update contact discretization in Poisson equation...
+00:00:05 
+00:00:05 Initialize electrostatic potential...
+00:00:11 Charge Neutrality time: 6.229[s]
+00:00:11 
+00:00:11 Solving nonlinear Poisson equation...
+00:00:11   Newton step: 1	4152.018780238651
+00:00:17   Newton step: 2	2617.187715225555
+00:00:19   Newton step: 3	539.8972838401949
+00:00:21   Newton step: 4	194.4788069478608
+00:00:23   Newton step: 5	70.46615467210663
+00:00:25   Newton step: 6	24.96200729800098
+00:00:26   Newton step: 7	8.004967579520253
+00:00:28   Newton step: 8	1.865410049503436
+00:00:30   Newton step: 9	0.1770809898139586
+00:00:32   Newton step: 10	0.00212715997898346
+00:00:33   Newton achieved/desired residual: 4.44853317e-07 0.00180951265
+00:00:34 
+00:00:34 ********* OUTPUT ***************************************************************
+00:00:34 
+00:00:34 ********* FINISHED CALCULATION *************************************************
+00:00:34 
+00:00:34 End time: Wed 2022-01-19, 14:28:27 (-0500)
+00:00:34 Total Poisson Solver Time: 28.749[s]
+00:00:34 Simulator Run Time: 34.747[s]
+00:00:34 
+00:00:34 ================================================================================
+00:00:34  DONE.
+00:00:34 ================================================================================
