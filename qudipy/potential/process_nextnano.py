@@ -13,6 +13,16 @@ import numpy as np
 import pandas as pd
 from scipy import constants
 
+def get_files(dir):
+
+    # Collect the names of every subdirectory in the dir path
+    list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
+
+    # Append text document suffix on each string in the list
+    list_of_files = [string + '.txt' for string in list_subfolders_with_paths]
+
+    return list_of_files
+
 def load_file(filename):
     '''
     This function loads data files from a user defined nextnano simulation
@@ -179,11 +189,8 @@ def import_dir(dir, show_files=False):
 
     '''
 
-    # Collect the names of every subdirectory in the dir path
-    list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
-
-    # Append text document suffix on each string in the list
-    list_of_files = [string + '.txt' for string in list_subfolders_with_paths]
+    # Collect simulation meta data files
+    list_of_files = get_files(dir)
 
     # Dictionary which holds all of the simulation run data grouped by run
     data = {}
@@ -208,32 +215,32 @@ def import_dir(dir, show_files=False):
         # First move into a subdirectory
         if sub_dir != dir and base_dir == ['output']:
 
-            # Get single file one level down in the subdirectory if it exists
-            if files:
-                file = files[0]
-            else:
-                print(f'WARNING: no simulation run file in directory {sub_dir}')
+            # Check if files one level down in the subdirectory exists
+            if not files:
+                print(f'WARNING: no individual files in directory {sub_dir}')
 
-            # If the file name is the same as one of the directories then get
-            # the ctrl_item information
-            if file in list_of_files:
+            # Search for simulation run meta data file
+            for file in files:
+                # If the file name is the same as one of the directories then get
+                # the ctrl_item information
+                if file in list_of_files:
+                    
+                    # Generate absolute path to file that is names the same as the
+                    # directory
+                    filename = os.path.join(sub_dir, file)
 
-                # Generate absolute path to file that is names the same as the
-                # directory
-                filename = os.path.join(sub_dir, file)
+                    # Get voltages
+                    voltages = get_ctrl(filename, ctrl_type='value')
 
-                # Get voltages
-                voltages = get_ctrl(filename, ctrl_type='value')
+            # Check if control data in the subdirectory exists
+            if not voltages:
+                print(f'WARNING: no simulation run file with control data found in directory {sub_dir}')
 
             # Assign control values for the given simulation run
             data_per_run['ctrl_names'] = voltages
 
-            # Loop through the files under the /output directory
+            # Loop through the all files under the /output directory
             for data_sub, _, data_files in os.walk(os.path.join(sub_dir,base_dir[0])):
-                # Elect to display the files being imported from nextnano
-                if show_files == True:
-                    print('Importing .coord and .dat data files from {}:'.format(
-                        sub_dir.replace(str(dir),'')))
 
                 # Assign potential and coordinate data
                 for file in data_files:
@@ -242,9 +249,21 @@ def import_dir(dir, show_files=False):
                     filename = os.path.join(data_sub, file)
 
                     if filename[-13:] == 'potential.dat':
+
+                        # Elect to display the files being imported from nextnano
+                        if show_files == True:
+                            print('Importing .coord data files from {}:'.format(
+                                sub_dir.replace(str(dir),'')))
+
                         data_per_run['ctrl_values'] = load_file(filename)
 
                     if filename[-15:] == 'potential.coord':
+
+                        # Elect to display the files being imported from nextnano
+                        if show_files == True:
+                            print('Importing .dat data files from {}:'.format(
+                                sub_dir.replace(str(dir),'')))
+
                         coord = load_file(filename)
                         data_per_run['coord']['x'] = coord[0]
                         data_per_run['coord']['y'] = coord[1]
@@ -520,18 +539,21 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
     '''
     potential = import_dir(input_dir_path)
 
+    # Collect simulation meta data files
+    list_of_files = get_files(input_dir_path)
+
     # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
 
     for sub_dir, _, files in os.walk(input_dir_path):
 
-        # Parse voltage information for the directory one level higher
-        # than /output
-        if sub_dir != input_dir_path and sub_dir[-6:] != 'output' and files:
+        # Parse voltage information from simulation run meta data file
+        for file in files:
+            if sub_dir != input_dir_path and sub_dir[-6:] != 'output' and file in list_of_files:
 
-            filename = os.path.join(sub_dir,files[0])
-            gates = get_ctrl(filename, ctrl_type='name')
-            break
+                filename = os.path.join(sub_dir,file)
+                gates = get_ctrl(filename, ctrl_type='name')
+                break
 
     output_dir_path = output_dir_path + '_for_nearest_slice{:.3e}'.format(nearest_slice)
 
