@@ -1,23 +1,30 @@
-# Ignore downloaded tutorial data to prevent slow push
-# tutorials/QuDiPy tutorial data/
+# Ignore downloaded tutorial data to prevent slow push or attempting to upload
+# too large of a data file (github has a max repository size of 2GB for free
+# version).
+
+tutorials/QuDiPy tutorial data/
 QuDiPy tutorial data/
+
+# Ignore data created by control module
+*.qcirc
+*.ctrlp
 
 *.ipynb_checkpoints
 animation_plot/
 testing.py
 
-# I use tutorials/test.py for testing purposes and don't want it tracked
+# I use tutorials/test.py for testing purposes and don't want it tracked.
 tutorials/test.py
 # I sometimes use the cProfile package in tutorial/test.py for code optimization
-# This generates output.dat, output_calls.txt, output_time.txt
+# This generates output.dat, output_calls.txt, output_time.txt.
 tutorials/output.dat
 tutorials/output_calls.txt
 tutorials/output_time.txt
 tutorials/qudipy
-test_buddy*.py
 
-# Ignore any text file that contains alternate simulator names
-names.txt
+# This must be used inplace of simply test_<some file name> because pytest 
+# interperates this file name syntax as a pytest to be executed.
+test_buddy*.py
 
 *.pyc
 __pycache__/
