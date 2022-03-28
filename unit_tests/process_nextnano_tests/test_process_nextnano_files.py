@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import qudipy.potential as pot
+import qudipy.utils.helpers as hp
 
 '''
 Instructions for running unittests:
@@ -55,7 +56,7 @@ def test_data_importation(ctrl_data_input_path,ctrl_data):
 
     # Make sure every trial run was imported
 
-    assert len(ctrl_data) == 5
+    assert len(ctrl_data) == 4
 
     # Make sure a trial run was imported correctly
 
@@ -73,42 +74,63 @@ def test_data_importation(ctrl_data_input_path,ctrl_data):
     assert type(ctrl_data[0]['ctrl_values']) is np.ndarray
     assert type(ctrl_data[0]['coord']) is dict
 
-# parse_ctrl_items works and retrieve_ctrl_vals works
+# get_ctrl works and retrieve_ctrl_vals works
 def test_ctrl_val_minipulation(ctrl_data_input_path, ctrl_data):
     
     # Make sure control names are parsed correctly
-    for subdir, _, _ in os.walk(ctrl_data_input_path):
+    
+    # Collect simulation meta data file names to parse
+    list_of_files = pot.get_files(ctrl_data_input_path)
 
-        # parse voltage information for the directory one level higher than
-        # /output
-        if subdir != ctrl_data_input_path and subdir[-6:] == 'output':
-            gates = pot.parse_ctrl_items(subdir,'name')
-            break
+    # Loop over all sub_directories, base directories, files in
+    # dir
+    for sub_dir, base_dir, files in os.walk(ctrl_data_input_path):
 
-    assert gates == ['V1','V2','V3','V4','V5']
+        # First move into a subdirectory
+        if sub_dir != dir and base_dir == ['output']:
+
+            # Search for simulation run meta data file
+            for file in files:
+                # If the file name is the same as one of the directories then 
+                # get the ctrl_item information
+                if file in list_of_files:
+                    
+                    # Generate absolute path to file that is names the same as
+                    # the directory
+                    filename = os.path.join(sub_dir, file)
+
+                    # Get voltages
+                    gates = pot.get_ctrl(filename, ctrl_type='name')
+
+                    # Check that all simulation runs have the same gate names
+                    assert gates == ['V1','V2','V3','V4','V5']
+
     
     # Make sure control values are combined correctly
-    ctrl_vals = pot.process_nextnano.retrieve_ctrl_vals(ctrl_data)
+    ctrl_vals = pot.process_nextnano.get_ctrl_vals(ctrl_data)
 
-    print(ctrl_data.keys)
+    # Check that the expected gate voltages were extracted from the nextnano
+    # meta data file
+    assert ctrl_vals == [[0.1],[0.2],[0.2],[0.2, 0.22, 0.24, 0.26],[0.1]]
 
-    print(ctrl_vals)
-
-    # assert ctrl_vals == [[0.1],[0.2],[0.2],[0.2, 0.22, 0.24, 0.25, 0.26],[0.1]]
-    assert ctrl_vals == [[0.1],[0.2],[0.2],[0.26, 0.2, 0.22, 0.25, 0.24],[0.1]]
-
-# reshape_potential works 
-def test_reshape_potential(ctrl_data_input_path, ctrl_data):
+# reshape_field works 
+def test_reshape_field(ctrl_data_input_path, ctrl_data):
     
-    ctrl_data = pot.process_nextnano.import_folder(ctrl_data_input_path
-                                                    ,file_import_display=True)
+    ctrl_data = pot.process_nextnano.import_dir(ctrl_data_input_path
+                                                    ,show_files=True)
 
     z = 0.45
     f_name = 'Uxy'
     
+    print(ctrl_data.keys())
+    print(ctrl_data[0].keys())
+
     # slice an x-y plane of the potentials
-    potential2D = pot.reshape_potential(ctrl_data[0]['ctrl_values'],ctrl_data[0]['coord']['x']
-        ,ctrl_data[0]['coord']['y'],ctrl_data[0]['coord']['z'],z, f_name)
+    potential2D = pot.reshape_field(ctrl_data[0]['ctrl_values'],
+                                    ctrl_data[0]['coord']['x'], 
+                                    ctrl_data[0]['coord']['y'], 
+                                    ctrl_data[0]['coord']['z'],
+                                    f_name, z)
 
     assert np.shape(potential2D) == (103,35)
 
@@ -117,14 +139,40 @@ def test_finilized_2D_data(ctrl_data_input_path, ctrl_data_output_path, ctrl_dat
 
     z = 0.45
     f_name = ['Uxy']
-    # f_name = 'pot'
 
-    file_trig, coords_and_pot = pot.write_data(ctrl_data_input_path, 
-        ctrl_data_output_path, z,f_name)
+    # Import 3D potential data to be processed
+    potential = pot.import_dir(ctrl_data_input_path)
 
+    # Collect simulation meta data files
+    list_of_files = pot.get_files(ctrl_data_input_path)
+
+    # Find nearest slice from user specified slice
+    _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], z)
+
+    for sub_dir, _, files in os.walk(ctrl_data_input_path):
+
+        # Parse voltage information from simulation run meta data file
+        for file in files:
+            if (sub_dir != ctrl_data_input_path 
+                and sub_dir[-6:] != 'output' 
+                and file in list_of_files):
+
+                filename = os.path.join(sub_dir,file)
+                gates = pot.get_ctrl(filename, ctrl_type='name')
+                break
+
+    # Generate the 2D slice containing the coordinate and field data for the 
+    # f_name[0] = 'Uxy'
+    _, coord_and_pot = pot.xy_pot(potential, gates, nearest_slice, 
+                                f_name[0], save=False)
 
     # Make sure x/y coordinates are added to 2D potential
-    assert np.shape(coords_and_pot) == (36,104)
+    assert np.shape(coord_and_pot) == (36,104)
 
-    # Make sure data was converted correctly or saved
-    assert file_trig == 0
+    # Try to save a 2D slice of data
+    file_trig = pot.write_data(ctrl_data_input_path, 
+                                                ctrl_data_output_path, 
+                                                z, f_name)
+
+    # Make sure data was saved
+    assert file_trig == True

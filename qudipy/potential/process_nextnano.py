@@ -196,7 +196,7 @@ def import_dir(dir, show_files=False):
     data = {}
     count = 0
 
-    # Loop over all sub_directories, base directories (ignored), files in
+    # Loop over all sub_directories, base directories, files in
     # dir
     for sub_dir, base_dir, files in os.walk(dir):
 
@@ -234,7 +234,7 @@ def import_dir(dir, show_files=False):
 
             # Check if control data in the subdirectory exists
             if not voltages:
-                print(f'WARNING: no simulation run file with control data found in directory {sub_dir}')
+                print(f'WARNING: no simulation file with control data found in directory {sub_dir}')
 
             # Assign control values for the given simulation run
             data_per_run['ctrl_names'] = voltages
@@ -461,6 +461,8 @@ def xy_pot(potential, gates, slice, f_type, output_dir_path=None, save=None):
                                             potential_copy[i]['coord']['y'],
                                             potential_copy[i]['coord']['z'],
                                             f_name, slice)
+        else:
+            raise SyntaxError(f'ERROR: The field name, {f_type}, is not an allowed field name.')
 
         # Create an array of zeros with the dimension of the potential 2D slice
         # and x/y coordinate axis
@@ -484,15 +486,18 @@ def xy_pot(potential, gates, slice, f_type, output_dir_path=None, save=None):
 
         f_name +='.txt'
 
-        # Create directory for preprocessed data
-        if not os.path.exists(output_dir_path):
-            os.mkdir(output_dir_path)
+        # Only try to save data when output directory is provided and save flag
+        # is True
+        if save and output_dir_path:
 
-        # Join file name to directory path
-        f_path = os.path.join(output_dir_path,f_name)
+            # Create directory for preprocessed data
+            if not os.path.exists(output_dir_path):
+                os.mkdir(output_dir_path)
 
-        if save:
-        # Try to save the data to a text file
+            # Join file name to directory path
+            f_path = os.path.join(output_dir_path,f_name)
+
+            # Try to save the data to a text file
             try:
                 # Save potential data for xy slice
                 np.savetxt(f_path, coords_and_pot, delimiter=',')
@@ -570,6 +575,9 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
             print('SAVE SUCCESS: Converting 3D nextnano simulation data to 2D '
             'XY-plane {} along slice for z = {}.'.format(i,nearest_slice))
         elif not file_trig:
+            print('FAILED SAVE: Failed to convert 3D nextnano simulation data '
+                'too 2D XY-plane {} data along slice for '
+                + 'z = {}.'.format(i,nearest_slice))
             print('FAILED SAVE: Failed to convert 3D nextnano simulation data '
                 'too 2D XY-plane {} data along slice for '
                 + 'z = {}.'.format(i,nearest_slice))
