@@ -133,16 +133,32 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
     v_offset = v_unit_shape(np.inf) # surely equal to offset at infinity
     delta_g_0 = delta_g_interp(v_offset)
     
-    # creating a control pulse object 
+    
+    ## * Creating a ControlPulse Object *
+    
+    # Create a string of active qubits.
+    actv_str = ""
+    for q in active_qubits:
+        if not isinstance(q, int) or q <= 0:
+            raise Exception("active qubit parameter must be a tuple" +
+                            "list, or array of positive integers")
+        else:
+            actv_str = actv_str + "_" + str(q) 
+    
+    # Format theta correctly
+    if theta < 0: sign = "-"
+    else: sign = ""
+    theta_str = (sign + str(abs(theta))).zfill(3)
+    
     if isinstance(axis, str):
-        rot_pulse = ControlPulse(pulse_name='ROT{}_{}'.format(axis, theta), 
+        rot_pulse = ControlPulse(pulse_name='ROT{}{}{}'.format(axis, theta_str, actv_str), 
                                 pulse_type='effective')
     else:
         n_x = rotation_axis[0]
         n_y = rotation_axis[1]
         n_z = rotation_axis[2]
-        rot_pulse = ControlPulse(pulse_name='ROT({},{},{})_{}'.format(n_x, n_y, n_z, theta),
-                                pulse_type='effective')
+        rot_pulse = ControlPulse(pulse_name='ROT({},{},{}){}{}'\
+                    .format(n_x, n_y, n_z, theta, actv_str), pulse_type='effective')
     
     # setting all delta_g values to offset values for all qubits
     # setting all Voltage values of plunger gates
@@ -153,8 +169,6 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
                                     var_pulse=np.full(num_val, delta_g_0))
         rot_pulse.add_control_variable(var_name= 'V_{ind}'.format(ind = i), 
                                     var_pulse=np.full(num_val, v_offset))
-    # adding in active qubits variable
-    setattr(rot_pulse, 'active', active_qubits) 
 
     # values of normalized time and pulse
     tau = np.linspace(0, 1, num_val)
