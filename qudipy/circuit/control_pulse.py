@@ -8,10 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from copy import deepcopy
+from qudipy.circuit.quantum_circuit import QuantumCircuit
 
 class ControlPulse:
     
-    def __init__(self, pulse_name, pulse_type, pulse_length=-1, ideal_gate=None):
+    def __init__(self, pulse_name, pulse_type, pulse_length=-1, ideal_gate=None, gates=None):
         '''
         Initialize a ControlPulse object.
 
@@ -34,6 +35,9 @@ class ControlPulse:
         ideal_gate : string, optional
             The ideal gate keyword for this control pulse. The default
             is None.
+        gates: QuantumCircuit, optional
+            The QuantumCircuit object that defines the simultaneity more
+            than one different gate in the pulse. Default is None.
 
         Returns
         -------
@@ -45,7 +49,10 @@ class ControlPulse:
         
         self.name = pulse_name
         self.length = pulse_length # Units are s
-        self.n_pts = 0 # Number of points in pulse (default 0), must be same among control variables
+        
+        # Number of points in pulse (default 0), 
+        # must be same among control variables
+        self.n_pts = 0 
         
         self.ctrl_pulses = {}
         self.ctrl_names = []
@@ -55,8 +62,14 @@ class ControlPulse:
        
         self.ctrl_time = None
 
-        # Attribute to be initialized later in _generate_ctrl_interpolators
+        # Attribute to be initialized later in 
+        # _generate_ctrl_interpolators
         self.ctrl_interps = None
+        
+        # Attribute specifying if there are different gates
+        # happening simultaneously in the pulse.
+        # -> will either be None or a QuantumCircuit
+        self.gates = gates
         
         
     def __call__(self, time_pts):
@@ -307,13 +320,121 @@ class ControlPulse:
                 
             self.ctrl_interps[ctrl] = interp1d(self.ctrl_time, curr_pulse)        
             
+    def add_mult_gates(self):
+        '''
+        Changes gates attribute to be a QuantumCircuit of 
+        the correct format for the gates specified in 
+        the parameter add_gates.
         
+        Parameters:
+        ------------
+        add_gates: List/Tuple/Arrayof(String)
+            A list of pulse names that we wish to have run
+            simultaneously
         
+        Returns:
+        ------------
+        None
         
+        Note:
+        -------
+        This function does not create the pulses necessary
+        for these gates, it just flags that the ControlPulse
+        contains a pulse with more than one type of gate acting
+        on multiple qubits simultaneously.
+        '''
+        try:
+            add_gates = list(map(lambda x: x.strip(" "), self.name.split("|")))
+        except ValueError:
+            print("The name of a Control Pulse containing multiple gates must\
+            be of the form GATE1_qubit | GATE2_qubit | ... The name of the provided\
+            ControlPulse is {}".format(self.name))
         
+        name = self.name + " circuit"
         
+        # Create list of ideal gates and find the 
+        # number of qubits used in the circuit.
+        ideal_gates = []
+        used_qubits = []
+        n_qubits = []
+        # Pull out the name of the gate
+        for g in add_gates:
+            ideal_gates = ideal_gates + [g.split("_")[0]]
+            L = []
+        # Pull out the qubits used in the gate
+            qubits = []
+            for ele in g.split("_"):
+                if ele.isnumeric():
+                    q = int(ele)
+                    qubits = qubits + [q]
+                    n_qubits = n_qubits + [q]
+        # For each gate, put the qubits into the used_qubit list
+            used_qubits = used_qubits + [qubits] # Listof(Listof(Int))
+        # Find the number of qubits used
+        n_qubits = max(n_qubits)
+        # Put used_qubits into a tuple (data formating)
+        used_qubits = tuple(used_qubits)
+                    
+        # Create the QuantumCircuit object
+        gates = QuantumCircuit(name, n_qubits, {})
         
+        # Add the gates to the object 
+        gates.add_gate(self.name + '_gates', ideal_gates, used_qubits, mult_gates=True)
         
+        # Add gates as an attribute
+        self.gates = gates
+    
+    
+    def print_pulse(self):
+        '''
+        Prints a circuit diagram of the pulse
+
+        Effects
+        ---------
+        * Prints to screen
+
+        Returns
+        ---------
+        None
+        '''
+        # If only a single gate is specified in the Control Pulse
+        # we need to create a QuantumCircuit object for it.
+        if self.gates == None:
+            
+            # Pull out data from ControlPulse.
+            circ_name = self.name + " pulse circuit"
+            ideal_gate = self.ideal_gate
+            
+            # Split up the name to find the largest index 
+            # number of qubit.
+            L = self.name.split('_')
+            n_qubits = 0 
+            used_qubits = []
+            for ele in L:
+                if ele.isnumeric():
+                    q = int(ele)
+                    used_qubits = used_qubits + [q]
+                    if q > n_qubits:
+                        n_qubits = q
+            # Initialize QuantumCircuit Object
+            gates = QuantumCircuit(circ_name, n_qubits, {})
+            # Add gate
+            gates.add_gate(self.name, ideal_gate, used_qubits, mult_gates=False)
         
+        # If gates is not None then it should be a QuantumCircuit
+        else:
+            gates = self.gates
+            if not isinstance(gates, QuantumCircuit):
+                err_mess = 'The keyword argument gates is {} which is ' +\
+                'neither None or a QuantumCircuit object. Please make ' +\
+                'sure that it is a valid argument.'.format(gates)
+                raise Exception(err_mess)
+            
+            if len(gates.circuit_sequence) != 1 \
+                or not isinstance(gates.circuit_sequence[0], tuple):
+                err_mess = 'The circuit sequence {} is not a valid ' +\
+                'QuantumCircuit to specify multiple gates.'\
+                .format(gates.circuit_sequence)
+                raise Exception(err_mess)
         
-        
+        gates.print_ideal_circuit()
