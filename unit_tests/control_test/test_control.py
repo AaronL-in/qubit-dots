@@ -172,8 +172,8 @@ def rot_save():
 
 
 ## *** run tests ***
-def test_arbitrary_rot(shapes, g_interp, rot_save):
-	B0 = balance_zeeman(g_interp, square_shape, 1000)
+def test_arbitrary_rot(shapes_list, g_interp, rot_save):
+	B_0 = balance_zeeman(g_interp, square_shape, 1000)
 	
 	rot_list = rot_save.keys()
 
