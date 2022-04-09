@@ -244,6 +244,7 @@ def check_ideal_gate(gate_name, qubit_idx=None):
     # helper function for organization
     def valid_rot_angle(gate_name, arbitrary_rotation):
         '''
+        @author: Madi
         returns True if the angle connected to the
         rotation gate has the form ### or -###
 
