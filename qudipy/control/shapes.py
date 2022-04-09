@@ -36,8 +36,10 @@ def square(t_start=0, t_end=1, amp=1, offset=0):
         '''
     def square_pulse(t):    
         # making the time input a float array
-        if isinstance(t, (int,float,list,tuple,range)):
+        try:
             t = np.array(t, dtype=float)
+        except ValueError:
+            print("Unable to convert {type} object to float array".format(type = type(t)))
 
         # creating a pulse with offset values at all times first
         pulse_arr = np.full(t.shape, offset, dtype=float)
@@ -79,8 +81,10 @@ def triangle(t_start=0, t_end=1, amp=1, offset=0):
         '''
     def triangular_pulse(t):    
         # making the time input a float array
-        if isinstance(t, (int,float,list,tuple,range)):
+        try:
             t = np.array(t, dtype=float)
+        except ValueError:
+            print("Unable to convert {type} object to float array".format(type = type(t)))
 
         # creating a pulse with offset values at all times first
         pulse_arr = np.full(t.shape, offset, dtype=float)
@@ -169,3 +173,4 @@ if __name__=='__main__':
     # plt.plot(times, gauss_pulse(times))
     
 
+    
