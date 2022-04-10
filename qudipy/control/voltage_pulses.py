@@ -2,6 +2,8 @@
     Module that contains methods that design "simple" one- and two-qubit gates.
     Will return control pulse objects eventually, but now it is used only to 
     find pulse duration or amplitude
+
+@author: Madi Schuetze
 '''
 ##*************************************************
 import os, sys
@@ -60,7 +62,6 @@ def balance_zeeman(delta_g_interp, v_offset, f_rf):
 def rot(rotation_axis, theta, n_qubits, active_qubits, 
                 delta_g_interp, v_unit_shape, B_0, num_val=100):
     '''
-    @author: Madi & Others (TODO specify others)
 
     Chooses the optimal duration for a ROT(\theta) pulse of the specified pulse 
     shape, where the argument 'axis' defines rotation. 
@@ -79,6 +80,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         Positions of qubits (starting from 1, not 0!) on which the pulse
          is supposed to act. The rest will be made inactive.
     delta_g_interp: function
+        #TODO provide better explanation 
         (ideally, but only one interpolating function for now)
         Iterable of interpolating functions \delta g_i(\vec{V}) for 
         all qubits, including inactive ones
@@ -154,9 +156,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
         rot_pulse = ControlPulse(pulse_name='ROT{}{}{}'.format(axis, theta_str, actv_str), 
                                 pulse_type='effective')
     else:
-        n_x = rotation_axis[0]
-        n_y = rotation_axis[1]
-        n_z = rotation_axis[2]
+        n_x, n_y, n_z = rotation_axis
         rot_pulse = ControlPulse(pulse_name='ROT({},{},{}){}{}'\
                     .format(n_x, n_y, n_z, theta, actv_str), pulse_type='effective')
     
@@ -233,9 +233,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
     else:
         # *** ARBITRARY ROTATION ***
         #create variables for Vector Components to speed up run-time
-        n_x = rotation_axis[0]
-        n_y = rotation_axis[1]
-        n_z = rotation_axis[2]
+        n_x, n_y, n_z = rotation_axis
         
         # make sure that the rotation_axis is a Bloch Vector, if not, make it unitary
         norm = np.sqrt(n_x**2 + n_y**2 + n_z**2)
@@ -257,8 +255,8 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
 
             Returns
             ---------------
-            List 
-                contains all of the values of the shape
+            Array: 1-Dimension
+                Contains all of the values of the shape
             '''
             delta_g_diff = np.array(delta_g_pulse - delta_g_0)
             if active:
@@ -271,10 +269,7 @@ def rot(rotation_axis, theta, n_qubits, active_qubits,
                 return delta_g_diff / param
     
         # Find Shape
-        if n_z == 1:
-            S = find_shape(active = True) #get shape
-        else:
-            S = find_shape(active = False) #get shape
+        S = find_shape(active = (n_z==1))
         
         # sign of pulse shape
         shape_sign = []
