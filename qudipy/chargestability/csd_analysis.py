@@ -484,7 +484,7 @@ class CSDAnalysis:
         cmap = mpl.cm.magma
         
         # Create Plot
-        if x_values is not None and x_values is not None:
+        if x_values is not None and y_values is not None:
           s = ax.pcolormesh(x_values, y_values, data, shading ='gouraud', cmap = cmap)
         else:
           s = ax.pcolormesh(data, shading ='flat', cmap = cmap)
