@@ -184,7 +184,7 @@ class PotentialInterpolator:
         
     
     def plot(self, volt_vec, plot_type='2D', y_slice=0, x_slice=None,
-             show_wf=False, wf_n=0):
+             show_wf=False, wf_n=0, axes=None):
         '''
         Method for plotting the potential landscape at an arbitrary voltage 
         configuration.
@@ -224,11 +224,19 @@ class PotentialInterpolator:
             Will plot the nth energy wavefunction. Indexing starts at 0
             which indicates the ground state wavefunction.
             The default is 0.
+        axes: matplotlib.pyplot ax object, optional
+            User can define this variable to be an 'ax' object to plot. The
+            plot will not be printed to screen is axes!=None. 
         Returns
         -------
         None.
         '''
-
+        # Verify valid input.
+        if axes is not None:
+          if x_slice is not None:
+            raise Exception('This action currently not supported. '+\
+                            "The x_slice must be None type.")
+        
         # If the potentialInterpolator only supports 1D potentials, then
         # fix the default plot_type
         if self.grid_type == '1D':
@@ -323,7 +331,10 @@ class PotentialInterpolator:
             
             # If x-axis slice isn't sepcified, just show x-axis plot.
             if x_slice is None:
-                fig, ax = plt.subplots(figsize=(8,8))
+                if axes is None:
+                  fig, ax = plt.subplots(figsize=(8,8))
+                else:
+                  ax = axes
                 if self.grid_type == '2D':
                     pot_1D = int_pot[y_idx,:].T
                 elif self.grid_type == '1D':
@@ -345,8 +356,9 @@ class PotentialInterpolator:
                         _add_wf_overlay(ax, int_pot, wf_n=wf_n, slice_idx=None,
                                         slice_axis='y')    
                     
-                    # otherwise the right y-label is slightly clipped
-                    fig.tight_layout()
+                    if axes is None:
+                        # otherwise the right y-label is slightly clipped
+                        fig.tight_layout()
 
             # If x-axis slice is specified, show both x- and y-axes plots
             else:
@@ -391,7 +403,7 @@ class PotentialInterpolator:
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
-                fig.colorbar(img, ax=ax,location='right', shrink=0.7)
+                fig.colorbar(img, ax=ax, shrink=0.7)
                 ax.set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
                        title='2D profile')
             # Overlay wavefunction if desired
@@ -404,7 +416,7 @@ class PotentialInterpolator:
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
-                fig.colorbar(im0, ax=ax[0],location='right', shrink=0.7)
+                fig.colorbar(im0, ax=ax[0], shrink=0.7)
                 ax[0].set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
                             title='2D profile')
                 
@@ -422,7 +434,7 @@ class PotentialInterpolator:
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
-                fig.colorbar(im1, ax=ax[1],location='right', shrink=0.7)
+                fig.colorbar(im1, ax=ax[1], shrink=0.7)
                 ax[1].set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
                             title=f'State {wf_n} probability')
                           
@@ -430,8 +442,8 @@ class PotentialInterpolator:
         else:
             raise ValueError(f'Error with specified plot_type {plot_type}. ' +
                              'Either ''1D'' or ''2D'' allowed.')
-            
-        plt.show()
+        if axes is None:
+          plt.show()
                     
     
     def find_resonant_tc(self, volt_vec, swept_ctrl, bnds=None, peak_threshold=1E5,
