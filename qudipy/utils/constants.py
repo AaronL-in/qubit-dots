@@ -52,7 +52,6 @@ class Constants:
 
 
 
-
         # Material system constants
         # Supported material systems include [Si/SiO2, Si/SiGe, GaAs, air]
         self.material_system = material_system

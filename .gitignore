@@ -14,7 +14,7 @@ tutorials/output.dat
 tutorials/output_calls.txt
 tutorials/output_time.txt
 tutorials/qudipy
-test_buddy*.py
+#test_buddy*.py
 
 # Ignore any text file that contains alternate simulator names
 names.txt
@@ -22,4 +22,4 @@ names.txt
 *.pyc
 __pycache__/
 *.csv
-
+*.png

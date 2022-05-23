@@ -47,7 +47,12 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
     interp_obj : Mod_RegularGridInterpolator class
         Interpolant object for the data inputted into the function.
     '''
-    
+    # now it can load both potentials and electric fields
+    if 'potentials' in load_data_dict.keys():
+        f_type = 'potentials'
+    if 'electric' in load_data_dict.keys():
+        f_type = 'electric'
+
     # Get first set of x and y coordinates
     x_coords = load_data_dict['coords'][0]
     y_coords = load_data_dict['coords'][1]
@@ -89,10 +94,10 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
         y_idx = qd.utils.find_nearest(y_coords, y_slice)[0]
     for idx, curr_gate_idx in enumerate(product(*temp_n_dims)):
         if y_slice is None:
-            all_data_stacked[idx,:,:] = load_data_dict['potentials'][idx]
+            all_data_stacked[idx,:,:] = load_data_dict[f_type][idx]
         else:
             all_data_stacked[idx,:] = np.squeeze(
-                load_data_dict['potentials'][idx][y_idx,:])
+                load_data_dict[f_type][idx][y_idx,:])
     
     all_data_stacked = np.reshape(all_data_stacked,(n_dims))
     
@@ -200,24 +205,27 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # list containing information about all the loaded files.
 
         # Load file
-        data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
         
-        # Extract items
-        x = data[0,1:]
-        y = data[1:,0]
-        pot = data[1:,1:]        
+        if os.path.exists(os.path.join(f_dir,f_name)):
+            data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
+            print(f'Loading file: {f_name}')
+        
+            # Extract items
+            x = data[0,1:]
+            y = data[1:,0]
+            pot = data[1:,1:]        
 
-        # Convert units if needed
-        if f_pot_units == 'eV':
-            # Just need to get electron charge
-            constants = qd.Constants('vacuum')
-            pot *= constants.e
+            # Convert units if needed
+            if f_pot_units == 'eV':
+                # Just need to get electron charge
+                constants = qd.Constants('vacuum')
+                pot *= constants.e
+                
+            if f_dis_units == 'nm':
+                x *= 1E-9
+                y *= 1E-9
             
-        if f_dis_units == 'nm':
-            x *= 1E-9
-            y *= 1E-9
-        
-        if idx == 0:
+            # if idx == 0:
             # If trim wasn't specified then we want to store the whole x axis
             if trim_x is None:
                 trim_x = [np.min(x), np.max(x)]
@@ -243,15 +251,18 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             # Have coordinates be a namedtuple
             Coordinates = namedtuple('Coordinates',['x','y'])
             all_files['coords'] = Coordinates(new_x,new_y)
-            
-        cval_array.append(list(curr_cvals))
+                
+            cval_array.append(list(curr_cvals))
 
-        # Do a spline interpolation to find potential at the 'trimmed' and 
-        # power of 2 coordiante points.
-        f = interp2d(x, y, pot, kind='cubic')
-        new_pot = f(new_x, new_y)
-        pots_array.append(new_pot)
-        
+            # Do a spline interpolation to find potential at the 'trimmed' and 
+            # power of 2 coordiante points.
+            f = interp2d(x, y, pot, kind='cubic')
+            new_pot = f(new_x, new_y)
+            pots_array.append(new_pot)
+        # else:
+            # print(f'Skipping file: {f_name}')
+            # continue
+
     all_files['ctrl_vals'] = cval_array
     all_files['ctrl_names'] = ctrl_names
     all_files[f_type_name] = pots_array
