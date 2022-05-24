@@ -31,7 +31,7 @@ def balance_zeeman(delta_g_interp, v_offset, f_rf):
     Parameters
     -----------------
     delta_g_interp: function
-        (ideally, but only one interpolating function for now)
+        (ideally n-dimensional, but only one interpolating function for now)
         Iterable of interpolating functions \delta g_i(\vec{V}) for 
         all qubits, including inactive ones
     v_offset: Float

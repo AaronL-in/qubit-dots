@@ -66,7 +66,7 @@ class GridParameters:
                 if self.nx != self.potential.shape[1]:
                     raise ValueError("x coordinate grid points do not match"\
                                     " number of potential x-coordinates.")
-                if self.nx != self.potential.shape[1]:
+                if self.ny != self.potential.shape[0]:
                     raise ValueError("y coordinate grid points do not match"\
                                     " number of potential y-coordinates.")
         

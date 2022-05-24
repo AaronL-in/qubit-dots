@@ -9,20 +9,21 @@ from  qudipy.potential import grid_params
 import qudipy as qd 
 
 class Potential:
-	def __init__(self, omegas, dot_sep, material, hor_comp = 10000, bias = 0, limit = 1/4):
+	def __init__(self, omegas, dot_sep, material, hor_comp = 10000, 
+												bias = 0, limit = 1/4):
 		'''
 		Initialize Potential object
 
 		Parameters
 		-------------
-		omega: Listof(Float)
+		omegas: Listof(Float)
 			frequency of harmonic oscillators
 
 		dot_sep: Float
 			seperation of dots
 
 		material: String
-			determines that constants that we use. Must
+			determines the constants that we use. Must
 			be consistent with Constants class in 
 			qudipy/utils/constants.py 
 
