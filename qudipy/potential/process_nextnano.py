@@ -13,13 +13,13 @@ import numpy as np
 import pandas as pd
 from scipy import constants
 
-def get_files(dir):
+def get_files(dir, file_type):
 
     # Collect the names of every subdirectory in the dir path
     list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
 
     # Append text document suffix on each string in the list
-    list_of_files = [string + '.txt' for string in list_subfolders_with_paths]
+    list_of_files = [string + file_type for string in list_subfolders_with_paths]
 
     return list_of_files
 
@@ -53,14 +53,23 @@ def load_file(filename):
         return [int(i) for i in d[index].split() if i.isdigit()][0]
 
     # Import .dat data
-    if filename[-4:] == '.dat':
+    if filename[-10:] in ('grid_x.dat', 'grid_y.dat', 'grid_z.dat'):
+        df = pd.read_csv(filename, sep='\s+', header=0)
+        #first column is the coordinate grid data
+
+        grid_data = df.to_numpy()[:,0]
+        return grid_data
+    
+    elif filename[-4:] == '.dat':
         df = pd.read_csv(filename, header=None)
-        data = df.to_numpy()
+        data = df.to_numpy()[:, 0]
 
         return data
 
+    
+
     # Import .coord data
-    if filename[-6:] == '.coord':
+    elif filename[-6:] == '.coord':
 
          # Read in xyz dimensions from .fld file for extracting .coord data
         with open(filename.replace('.coord','.fld'), 'r') as f:
@@ -190,7 +199,7 @@ def import_dir(dir, show_files=False):
     '''
 
     # Collect simulation meta data files
-    list_of_files = get_files(dir)
+    list_of_files = get_files(dir, '.txt')
 
     # Dictionary which holds all of the simulation run data grouped by run
     data = {}
@@ -218,20 +227,21 @@ def import_dir(dir, show_files=False):
             # Check if files one level down in the subdirectory exists
             if not files:
                 print(f'WARNING: no individual files in directory {sub_dir}')
-
+            
             # Search for simulation run meta data file
             for file in files:
                 # If the file name is the same as one of the directories then get
                 # the ctrl_item information
                 if file in list_of_files:
-                    
+
                     # Generate absolute path to file that is names the same as the
                     # directory
                     filename = os.path.join(sub_dir, file)
-
                     # Get voltages
                     voltages = get_ctrl(filename, ctrl_type='value')
 
+
+            #TODO: handle when above loop can't find any files matching any file in list_of_files
             # Check if control data in the subdirectory exists
             if not voltages:
                 print(f'WARNING: no simulation run file with control data found in directory {sub_dir}')
@@ -252,7 +262,7 @@ def import_dir(dir, show_files=False):
 
                         # Elect to display the files being imported from nextnano
                         if show_files == True:
-                            print('Importing .coord data files from {}:'.format(
+                            print('Importing .dat data files from {}:'.format(
                                 sub_dir.replace(str(dir),'')))
 
                         data_per_run['ctrl_values'] = load_file(filename)
@@ -261,13 +271,21 @@ def import_dir(dir, show_files=False):
 
                         # Elect to display the files being imported from nextnano
                         if show_files == True:
-                            print('Importing .dat data files from {}:'.format(
+                            print('Importing .coord data files from {}:'.format(
                                 sub_dir.replace(str(dir),'')))
 
                         coord = load_file(filename)
                         data_per_run['coord']['x'] = coord[0]
                         data_per_run['coord']['y'] = coord[1]
                         data_per_run['coord']['z'] = coord[2]
+
+                    # in case there's no potential.coord file
+                    #TODO make statements mutually exclusive
+                    
+                    if filename[-10:] in ('grid_x.dat', 
+                                    'grid_y.dat', 'grid_z.dat'):
+                        coord = load_file(filename)
+                        data_per_run['coord'][filename[-5]] = coord
 
             # Assign every data set per simulation run to a single list of
             # dictionaries
@@ -443,7 +461,7 @@ def xy_pot(potential, gates, slice, f_type, output_dir_path=None, save=None):
     potential_copy = potential.copy()
     # Loop through each combination of gate voltages
     for i in potential_copy:
-
+    
         if f_type.lower() in ['pot', 'potential', 'uxy']:
             # Capital U used here for writing nextnano data to text file
             f_name = 'Uxy'
@@ -540,28 +558,44 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
     potential = import_dir(input_dir_path)
 
     # Collect simulation meta data files
-    list_of_files = get_files(input_dir_path)
+    # list_of_files = get_files(input_dir_path, '.log')
+    list_of_files = get_files(input_dir_path, '.txt')
 
     # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
 
     for sub_dir, _, files in os.walk(input_dir_path):
-
+        broken = False
         # Parse voltage information from simulation run meta data file
         for file in files:
-            if sub_dir != input_dir_path and sub_dir[-6:] != 'output' and file in list_of_files:
+            # if file[-4:] == '.log':
+            #     print(file, '\t', sub_dir != input_dir_path, '\t',
+            #            sub_dir[-6:] != 'output', '\t', (file in list_of_files) )
+                
+            if (sub_dir != input_dir_path and sub_dir[-6:] != 'output' 
+                            and (file[-4:] == '.log' or file in list_of_files)):
+                            # allows to handle both .log and .txt log files
 
-                filename = os.path.join(sub_dir,file)
+                filename = os.path.join(sub_dir, file)
+                
                 gates = get_ctrl(filename, ctrl_type='name')
+                # print('file:', file, '\tgates:', gates)
+                broken = True
                 break
 
-    output_dir_path = output_dir_path + '_for_nearest_slice{:.3e}'.format(nearest_slice)
+        if(broken): break
 
+    output_dir_path = (output_dir_path +
+                         '_for_nearest_slice{:.3e}'.format(nearest_slice))
+
+    print('nearest_slice: ', nearest_slice)
     # Write xy potential files
+    if isinstance(f_type, str):
+        f_type = (f_type, )
     for i in f_type:
 
         # Try to write xy potential text files
-        file_trig, _ = xy_pot(potential,gates,nearest_slice,i
+        file_trig, _ = xy_pot(potential, gates, nearest_slice, i
             ,output_dir_path, save=True)
 
         # Indicate to user that the file failed/succeeded writting the data
