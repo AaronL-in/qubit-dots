@@ -53,7 +53,6 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
     if 'electric' in load_data_dict.keys():
         f_type = 'electric'
 
-
     # Get first set of x and y coordinates
     x_coords = load_data_dict['coords'][0]
     y_coords = load_data_dict['coords'][1]
@@ -125,7 +124,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     'TYPE_C1NAME_C1VAL_C2NAME_C2VAL_..._CNNAME_CNVAL.txt'
     where TYPE = 'Uxy' or 'Ez'. 
     Refer to tutorial for a more explicit example.
-    
+
     Parameters
     ----------
     ctrl_vals : list of list of floats
@@ -149,7 +148,9 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         default is the current working directory.
     f_pot_units : string, optional
         Units of the potential in the files to load. Units from file 
-        will be converted to J. Supported inputs are 'J' and 'eV'.
+        will be converted to J. Supported inputs are 'J', 'eV', 'V' for 
+        voltage potential and potential energy, and 'V/m' and 'V/nm' for
+        electric field.
     f_dis_units : string, optional
         Units of the x and y coordinates in the files to load. Units
         from file will be converted to m. 
@@ -169,7 +170,7 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
     all_files : dict
         Dictionary containing the x and y coordinates for the loaded 
         files, the potential data for each loaded file, and the 
-        corresponding votlage vector for each file.
+        corresponding votlage vector for each file -- all in SI units. 
         Fields = ['coords', 'potentials', 'ctrl_vals']
     '''
 
@@ -206,30 +207,34 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # list containing information about all the loaded files.
 
         # Load file
-        data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
         
-        # Extract items
-        x = data[0,1:]
-        y = data[1:,0]
-        pot = data[1:,1:]        
+        if os.path.exists(os.path.join(f_dir,f_name)):
+            data = pd.read_csv(os.path.join(f_dir,f_name), header=None).to_numpy()
+        
+            # Extract items
+            x = data[0,1:]
+            y = data[1:,0]
+            pot = data[1:,1:]        
 
-        # Convert units if needed
-        if f_pot_units == 'eV':
             # Just need to get electron charge
             constants = qd.Constants('vacuum')
-            pot *= constants.e
-        
-        if f_pot_units == 'kV/cm':
-            pot *= 1e5
 
-        if f_pot_units == 'V/nm':
-            pot *= 1e9
+            # Convert units if needed
+            if f_pot_units == 'eV':
+                pot *= constants.e
 
-        if f_dis_units == 'nm':
-            x *= 1E-9
-            y *= 1E-9
-        
-        if idx == 0:
+            if f_pot_units == 'V':
+                pot *= - constants.e
+
+            if f_pot_units == 'V/nm':
+                pot *= 1e9
+
+                
+            if f_dis_units == 'nm':
+                x *= 1E-9
+                y *= 1E-9
+
+            # if idx == 0:
             # If trim wasn't specified then we want to store the whole x axis
             if trim_x is None:
                 trim_x = [np.min(x), np.max(x)]
@@ -255,15 +260,16 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
             # Have coordinates be a namedtuple
             Coordinates = namedtuple('Coordinates',['x','y'])
             all_files['coords'] = Coordinates(new_x,new_y)
-            
-        cval_array.append(list(curr_cvals))
+                
+            cval_array.append(list(curr_cvals))
 
-        # Do a spline interpolation to find potential at the 'trimmed' and 
-        # power of 2 coordiante points.
-        f = interp2d(x, y, pot, kind='cubic')
-        new_pot = f(new_x, new_y)
-        pots_array.append(new_pot)
-        
+            # Do a spline interpolation to find potential at the 'trimmed' and 
+            # power of 2 coordiante points.
+            f = interp2d(x, y, pot, kind='cubic')
+            new_pot = f(new_x, new_y)
+            pots_array.append(new_pot)
+
+
     all_files['ctrl_vals'] = cval_array
     all_files['ctrl_names'] = ctrl_names
     all_files[f_type_name] = pots_array
