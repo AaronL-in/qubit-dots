@@ -11,6 +11,8 @@ import qudipy.potential as pot
 import qudipy.qutils as qt
 import qudipy.utils.helpers as hp
 
+from qudipy.potential import InterpolateND
+
 import qudipy.starkshift as ss
 from qudipy.utils.constants import Constants
 import qudipy.potential.InterpolateND as interp_nd
@@ -27,14 +29,14 @@ from tqdm import tqdm
 
 csts = Constants('Si/SiO2')
 
-data_exist = True
+data_exist = False
 plot_flag = False
 
 # input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','TMPLATE_5Gate_1.358E15_noRGrind')
 # input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','2gate_t1_d_sep_10')
 # input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','DQD_dotsep_60nm')
 input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','DQD_dotsep_60nm copy')
-# input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','DQD_all')
+input_nextnano = os.path.join(sys.path[0], 'tutorials', 'QuDiPy tutorial data','Nextnano simulations','DQD_all')
 
 output_preprocessed = os.path.join(sys.path[0],'tutorials', 'QuDiPy tutorial data','Pre-processed potentials','Pre-processed_data')
 
@@ -75,19 +77,36 @@ if not data_exist:
                                     f_type='electric', f_dir=pot_dir,
                                     f_dis_units='nm', f_pot_units='V/nm')
 
-    # potential_int = pot.build_interpolator(loaded_data_pot,
-    #                                          constants=csts)
-    # e_field_int = pot.build_interpolator(loaded_data_field,
-                                            #  constants=csts)
+    # ctrl_vals = pot.get_ctrl_vals(loaded_data_pot['ctrl_vals'])
 
-    # # vg = [0.1,0.2,0.2,0.2325,0.1]
-    # vg = [0.0,0.1,0.02,0.1,0.0, 0.0,0.0]
-    # vg = [0.1,0.02,0.1]
-    # # vg = [0.4,0.6,0.0,0.0]
+    # print(np.shape(loaded_data_pot['ctrl_vals']))
+    # print(np.shape(loaded_data_pot['ctrl_vals'])[0])
 
-    # potential_int.plot(vg, plot_type='1D', y_slice=0,)
-    # potential_int.plot(vg)
-    # e_field_int.plot(vg)
+
+    gate = []
+    for i in range(np.shape(loaded_data_pot['ctrl_vals'])[0]):
+        gate.append(loaded_data_pot['ctrl_vals'][i])
+
+    # Convert list of lists to array
+    gate = np.array(gate)
+
+    ctrl_vals = []
+    for i in range(np.shape(gate)[1]):
+        # Append all unique control values per control variable. This is done
+        # by: converting array of voltages per gate to set, sort the set items,
+        # convert the set to a list, and append the list to ctrl_vals.
+        ctrl_vals.append(list(sorted(set(gate[:,i]))))
+
+
+    shp = [len(ctrl_vals[1]), len(ctrl_vals[2]), len(ctrl_vals[3])]
+    print(np.shape(np.array(ctrl_vals)))
+    
+    tup = ()
+    for i in ctrl_vals:
+        tup += (len(i),)
+
+    gl_data = np.empty(tup)
+    # gl_data[:] = np.NaN
 
     delta_gl_vals = []
     delta_gr_vals = []
@@ -136,6 +155,20 @@ if not data_exist:
         dgr = stark_shiftr.delta_g(dummy_e_intr, [param], ctrl_names,
                                                         wavefuncs=[wfr])['delta_g_1'][0]
 
+        # assign to data array
+        # ctrl_vals
+        idx = []
+        for n,i in enumerate(param):
+            idice = np.where(ctrl_vals[n] == i)
+            a = idice[0]
+            aa = idice[0][0]
+
+            idx.append([int(idice[0][0])])
+
+        idex = np.ix_(*idx)
+        
+        gl_data[idex] = dgr
+
         # Left dot ------------------------------------------
         x_l = x[x<0]
         idx_l = len(x_l)
@@ -154,12 +187,19 @@ if not data_exist:
         dgl = stark_shiftl.delta_g(dummy_e_intl, [param], ctrl_names,
                                                         wavefuncs=[wfl])['delta_g_1'][0]
 
+
         # append delta_g factors for given gate voltages
         delta_gl_vals.append(dgl)
         delta_gr_vals.append(dgr)
         pl.append(param[1])
         pr.append(param[2])
         t.append(param[3])
+
+        # # load all gate voltages
+        # all_gates = np.zeros((len(param),len(loaded_data_pot['ctrl_vals'])))
+        # for i in range(len(param)):
+        #     all_gates[i,idx] = param[i]
+
         idx_map.append(idx)
 
         if plot_flag == True:
@@ -182,58 +222,8 @@ if not data_exist:
             plt.savefig(save_path, dpi=1000)
             plt.colorbar()
 
-
-            # fig, ax = plt.subplots(2,2)
-            # img = ax[0,0].imshow(np.real(np.multiply(wfr,wfr.conj())))
-            # ax[0,0].set_title(f'$|\psi_R(x,y)|^2$')
-            # ax[0,0].set_xlabel('x')
-            # ax[0,0].set_xlabel('y')
-
-            # img = ax[1,0].imshow(gparamsr.potential)
-            # # plt.plot(gparams.potential[64,:])
-            # ax[1,0].set_title(f'$V_R(x,y)$')
-            # ax[1,0].set_xlabel('x')
-            # ax[1,0].set_xlabel('y')
-
-            # img = ax[0,1].imshow(np.real(np.multiply(wfl,wfl.conj())))
-            # ax[0,1].set_title(f'$|\psi_L(x,y)|^2$')
-            # ax[0,1].set_xlabel('x')
-            # ax[0,1].set_xlabel('y')
-
-            # ax[1,1].imshow(gparamsl.potential)
-            # # plt.plot(gparams.potential[64,:])
-            # ax[1,1].set_title(f'$V_L(x,y)$')
-            # ax[1,1].set_xlabel('x')
-            # ax[1,1].set_xlabel('y')
-
-            # plt.show()
-            # save_path = os.path.join(png_dir, f'potential slice for {param}.png')
-            # plt.savefig(save_path, dpi=1000)
-
         # --------------------------------------------------------------------------
         # Calculate exchange
-
-        # gparams.update_potential(pot_T)
-
-        # ne = 1
-        # n_xy_ho = (4,4)
-        # n_se_orbs = 2
-        # ommega_guess = omega_guess = 0.025 * csts.hbar / (csts.me * csts.a_B**2)
-        # data_dir = ''
-
-        # ens, __ = qt.solvers.solve_many_elec_SE(gparams, n_elec=ne,
-        #             n_xy_ho=n_xy_ho,
-        #             n_se=n_se_orbs,
-        #             n_sols=4,
-        #             consts=csts,
-        #             optimize_omega=False,
-        #             omega=omega_guess,
-        #             cme_dir= data_dir,
-        #             spin_subspace=[0])
-        # J = ens[1] - ens[0]
-        # print('exchange value is: ', J,
-        # '\nenergies are: ', ens)
-        # ex.append(J)
 
     data = {}
     data['gl'] = delta_gl_vals
@@ -244,17 +234,41 @@ if not data_exist:
     data['idx'] = idx_map
     data['ctrl_vals'] = loaded_data_pot['ctrl_vals']
 
-    # np.savetxt('data.txt', data)
-
     # create a binary pickle file
-    f = open("data.pkl","wb")
+    # f = open("data2.pkl","wb")
+    f = open("data3.pkl","wb")
     # write the python object (dict) to pickle file
     pk.dump(data,f)
     f.close()
+    
+    f = open("ctrl_vals.pkl","wb")
+    # write the python object (dict) to pickle file
+    pk.dump(ctrl_vals,f)
+    f.close()
+
+    f = open("gl_data.pkl","wb")
+    # write the python object (dict) to pickle file
+    pk.dump(gl_data,f)
+    f.close()
+
+
+
 
 else:
-    file_to_read = open("data.pkl", "rb")
+    # file_to_read = open("data2.pkl", "rb")
+    file_to_read = open("data3.pkl", "rb")
     data = pk.load(file_to_read)
+
+    file_to_read = open("ctrl_vals.pkl", "rb")
+    ctrl_vals = pk.load(file_to_read)
+    
+    file_to_read = open("gl_data.pkl", "rb")
+    gl_data = pk.load(file_to_read)
+
+
+
+
+
 
 
 V1, V2, W1 = np.meshgrid(data['pl'],data['pr'],data['t'])
@@ -272,16 +286,18 @@ g3_sort = np.sort(g3_arr, axis=1)
 w1 = g3_sort[1]
 
 # raw data  -----------------------------------------------------------------
+# test_data = np.array([data['gl'], data['pl'][::-1], data['pr'][::-1], data['t'][::-1]])
 test_data = np.array([data['gl'], data['pl'], data['pr'], data['t']])
 
 # g1 raw
-fig, (ax1,ax2,ax3) = plt.subplots(3,1)
+# fig, (ax1,ax2,ax3) = plt.subplots(3,1)
+fig, (ax2,ax3) = plt.subplots(2,1)
 
 # g1(v1)
-ax1.plot(v1, g3_arr[0], '-o')
-ax1.set_title("g1")
-ax1.set_xlabel("v1")
-ax1.set_ylabel("g")
+# ax1.plot(v1, g3_arr[0], '-o')
+# ax1.set_title("g1")
+# ax1.set_xlabel("v1")
+# ax1.set_ylabel("g")
 
 # g1(v2)
 
@@ -308,12 +324,23 @@ g1_group = np.split(final_data[ydata,:], split_element[1])
 w1_group = np.split(final_data[xdata,:], split_element[1])
 
 for idx, i in enumerate(split_element[0]):
-    ax2.plot(w1_group[idx+1],g1_group[idx+1], '-o', label=f'W1 = {i}')
+
+    x = w1_group[idx+1]
+    y = g1_group[idx+1]
+
+    f = interp1d(x,y)
+    x_int = np.linspace(min(x),max(x), 100)
+    ax2.plot(x_int, f(x_int), '-k', label='Interpolation')
+
+    ax2.plot(w1_group[idx+1],g1_group[idx+1], 'o', label=f'W1 = {i}')
+    
     
 ax2.set_title("g1")
 ax2.set_xlabel("v2")
 ax2.set_ylabel("g")
-ax2.legend()
+
+lines, labels = ax2.get_legend_handles_labels()
+ax2.legend(labels, bbox_to_anchor=(1.2, 1))
 
 # g1(t)
 
@@ -339,244 +366,158 @@ split_element = np.unique(final_data[sort_group,:], return_index=True)
 g1_group = np.split(final_data[ydata,:], split_element[1])
 v2_group = np.split(final_data[xdata,:], split_element[1])
 
+
 for idx, i in enumerate(split_element[0]):
-    ax3.plot(v2_group[idx+1],g1_group[idx+1], '-o', label=f'V2 = {i}')
+    x = v2_group[idx+1]
+    y = g1_group[idx+1]
+
+    f = interp1d(x,y)
+    x_int = np.linspace(min(x),max(x), 100)
+    ax3.plot(x_int, f(x_int), '-k', label='Interpolation')
+
+    ax3.plot(x, y, 'o', label=f'V2 = {i}')
+
 ax3.set_title("g1")
 ax3.set_xlabel("t")
 ax3.set_ylabel("g")
-ax3.legend()
+
+lines, labels = ax3.get_legend_handles_labels()
+ax3.legend(labels, bbox_to_anchor=(1.2, 1))
 
 plt.tight_layout()
 
 save_path = os.path.join(png_dir, 'g1_1d_dots_array.png')
 plt.savefig(save_path, dpi=1000)
 
-# ----------------------------------------------------------------------
+# gr ---------------------------------------------------
 
-# g1 raw
-fig, (ax1,ax2,ax3) = plt.subplots(3,1)
+# test_data = np.array([data['gr'], data['pl'][::-1], data['pr'][::-1], data['t'][::-1]])
+test_data = np.array([data['gr'], data['pl'], data['pr'], data['t']])
 
-# g1(v1)
-ax1.plot(v1, g1_sort[0], '-o')
-ax1.set_title("g1")
-ax1.set_xlabel("v1")
-ax1.set_ylabel("g")
+# g2 raw
+# fig, (ax1,ax2,ax3) = plt.subplots(3,1)
+fig, (ax2,ax3) = plt.subplots(2,1)
 
-# g1(v2)
-ax2.plot(v2, g2_sort[0], '-o')
-ax2.set_title("g1")
+# g2(v1)
+# ax1.plot(v1, g3_arr[0], '-o')
+# ax1.set_title("g2")
+# ax1.set_xlabel("v1")
+# ax1.set_ylabel("g")
+
+# g2(v2)
+
+# sort row of interest
+sort_group = 2
+xdata = 3
+ydata = 0
+
+idx = test_data[sort_group,:].argsort()
+sort_data = test_data[:,idx]
+
+# transpose data to sort  multiple columns
+transpose_data = sort_data.T
+
+key1 = transpose_data[:,sort_group]
+key2 = transpose_data[:,xdata]
+
+var = np.lexsort((key2, key1))
+final_data = transpose_data[var].T
+
+# group data based on soreted elements
+split_element = np.unique(final_data[sort_group,:], return_index=True)
+g1_group = np.split(final_data[ydata,:], split_element[1])
+w1_group = np.split(final_data[xdata,:], split_element[1])
+
+for idx, i in enumerate(split_element[0]):
+
+    x = w1_group[idx+1]
+    y = g1_group[idx+1]
+
+    f = interp1d(x,y)
+    x_int = np.linspace(min(x),max(x), 100)
+    ax2.plot(x_int, f(x_int), '-k', label='Interpolation')
+
+    ax2.plot(w1_group[idx+1],g1_group[idx+1], 'o', label=f'W1 = {i}')
+    
+ax2.set_title("g2")
 ax2.set_xlabel("v2")
 ax2.set_ylabel("g")
 
+lines, labels = ax2.get_legend_handles_labels()
+ax2.legend(labels, bbox_to_anchor=(1.2, 1))
+
 # g1(t)
-ax3.plot(w1, g3_sort[0], '-o')
-ax3.set_title("g1")
+
+# sort row of interest
+sort_group = 3
+xdata = 2
+ydata = 0
+
+idx = test_data[sort_group,:].argsort()
+sort_data = test_data[:,idx]
+
+# transpose data to sort  multiple columns
+transpose_data = sort_data.T
+
+key1 = transpose_data[:,sort_group]
+key2 = transpose_data[:,xdata]
+
+var = np.lexsort((key2, key1))
+final_data = transpose_data[var].T
+
+# group data based on soreted elements
+split_element = np.unique(final_data[sort_group,:], return_index=True)
+g1_group = np.split(final_data[ydata,:], split_element[1])
+v2_group = np.split(final_data[xdata,:], split_element[1])
+
+
+for idx, i in enumerate(split_element[0]):
+    x = v2_group[idx+1]
+    y = g1_group[idx+1]
+
+
+    f = interp1d(x,y)
+    x_int = np.linspace(min(x),max(x), 100)
+    ax3.plot(x_int, f(x_int), '-k', label='Interpolation')
+
+    ax3.plot(x, y, 'o', label=f'V2 = {i}')
+
+
+ax3.set_title("g2")
 ax3.set_xlabel("t")
 ax3.set_ylabel("g")
 
-plt.tight_layout()
-
-save_path = os.path.join(png_dir, 'g1_1d_dots.png')
-plt.savefig(save_path, dpi=1000)
-
-# g1 interpolation -------------------------------------------------------------
-
-#1D
-fig, (ax1,ax2,ax3) = plt.subplots(3,1)
-
-# g1(v1)
-X = np.linspace(min(v1), max(v1))
-interp = interp1d(v1, g1_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax1.plot(X,G)
-ax1.set_title("g1")
-ax1.set_xlabel("v1")
-ax1.set_ylabel("g")
-
-# g1(v2)
-X = np.linspace(min(v2), max(v2))
-interp = interp1d(v2, g2_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax2.plot(X,G)
-ax2.set_title("g1")
-ax2.set_xlabel("v2")
-ax2.set_ylabel("g")
-
-# g1(t)
-X = np.linspace(min(w1), max(w1))
-interp = interp1d(w1, g3_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax3.plot(X,G)
-ax3.set_title("g1")
-ax3.set_xlabel("t")
-ax3.set_ylabel("g")
+lines, labels = ax3.get_legend_handles_labels()
+ax3.legend(labels, bbox_to_anchor=(1.2, 1))
 
 plt.tight_layout()
 
-save_path = os.path.join(png_dir, 'g1_1d.png')
+save_path = os.path.join(png_dir, 'g2_1d_dots_array.png')
 plt.savefig(save_path, dpi=1000)
+
 # 3D -------------------------------------------------------------------
-
 v1 = np.array(data['pl'])
 v2 = np.array(data['pr'])
-# w1 = np.array(np.unique(data['t']))
 w1 = np.array(data['t'])
 
+COR = []
+for i in range(len(ctrl_vals)):
+    COR.append(np.linspace(min(ctrl_vals[i]), max(ctrl_vals[i]), len(ctrl_vals[i])))
+
+M = np.meshgrid(v2, w1)
 
 # g1 interpolation -----------------------------
-
-# test
-
-cartcoord = list(zip(v2,w1))
-V2 = np.linspace(min(v2), max(v2), 100)
-W1 = np.linspace(min(w1), max(w1), 100)
-# V2, W1 = np.meshgrid(v2, w1)
-interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# interp = pot.build_interpolator(data['gl'], constants=csts)
-G = interp(V2,W1)#*1E4
-G[G == 0.0] = 'nan'
-
-# fig = plt.figure(figsize=(16, 12))
-fig = plt.figure()
-ax = fig.add_subplot(111)
-# img = ax.imshow(G)
-img = ax.scatter(V2,W1,G)
-cb = plt.colorbar(img, pad=0.2)
-ax.set_title("g1")
-ax.set_xlabel("v2")
-ax.set_ylabel("t")
-save_path = os.path.join(png_dir, 'g1_3d.png')
-plt.savefig(save_path, dpi=1000)
-
-
-cartcoord = list(zip(v2,w1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-V2, W1 = np.meshgrid(v2, w1)
-interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-G = interp(V2,W1)#*1E4
-G[G == 0.0] = 'nan'
-
-# fig = plt.figure(figsize=(16, 12))
-fig = plt.figure()
-ax = fig.add_subplot(111)
-# img = ax.imshow(G)
-img = ax.scatter(V2,W1,G)
-cb = plt.colorbar(img, pad=0.2)
-ax.set_title("g1")
-ax.set_xlabel("v2")
-ax.set_ylabel("t")
-save_path = os.path.join(png_dir, 'g1_3d.png')
-plt.savefig(save_path, dpi=1000)
-
-
-
-# cartcoord = list(zip(v1,v2,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-# # X, Y, Z = np.meshgrid(v1, v2, w1)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# G = interp(X, Y, Z)#*1E4
-# G[G == 0.0] = 'nan'
-
-# # fig = plt.figure(figsize=(16, 12))
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# img = ax.scatter(xs = X, ys = Y, zs = Z, c=G, alpha=0.15)
-# cb = plt.colorbar(img, pad=0.2)
-# ax.set_title("g1")
-# ax.set_xlabel("v1")
-# ax.set_ylabel("v2")
-# ax.set_zlabel("t")
-# save_path = os.path.join(png_dir, 'g1_3d.png')
-# plt.savefig(save_path, dpi=1000)
-
-# # g2 interpolation --------------------------
-# cartcoord = list(zip(v1,v2,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-# X, Y, Z = np.meshgrid(X, Y, Z)
-# interp = LinearNDInterpolator(cartcoord, data['gr'], fill_value=0)
-# G = interp(X, Y, Z)#*1E4#/1.6E-19*1E4
-# G[G == 0.0] = 'nan'
-
-# # fig = plt.figure(figsize=(16, 12))
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# img = ax.scatter(xs = X, ys = Y, zs = Z, c=G, alpha=0.15)
-# cb = plt.colorbar(img, pad=0.2)
-# ax.set_title("g2")
-# ax.set_xlabel("v1")
-# ax.set_ylabel("v2")
-# ax.set_zlabel("t")
-# save_path = os.path.join(png_dir, 'g2.png')
-# plt.savefig(save_path, dpi=1000)
-
-# # plt.show()
-
-
-# # cross sections --------------------------
-# plt.figure()
-# # v1/v2
-# cartcoord = list(zip(v1,v2))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# X, Y = np.meshgrid(X, Y)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_1/v_2$')
-# plt.xlabel('$v_1$')
-# plt.ylabel('$v_2$')
-# # ax[1,0].plot_x_label('$v_1$')
-# # ax[1,0].plot_y_label('$v_2$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v1-v2.png')
-# plt.savefig(save_path, dpi=1000)
-
-# plt.figure()
-# # v1/t
-# cartcoord = list(zip(v1,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(w1), max(w1))
-# X, Y = np.meshgrid(X, Y)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_1/t$')
-# plt.xlabel('$v_1$')
-# plt.ylabel('$t$')
-# # ax[1,0].plot_x_label('$v_1$')
-# # ax[1,0].plot_y_label('$t$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v1-t.png')
-# plt.savefig(save_path, dpi=1000)
-
-# plt.figure()
-# # v2/t
 # cartcoord = list(zip(v2,w1))
-# X = np.linspace(min(v2), max(v2))
-# Y = np.linspace(min(w1), max(w1))
-# X, Y = np.meshgrid(X, Y)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_2/t$')
-# plt.xlabel('$v_2$')
-# plt.ylabel('$t$')
-# # ax[1,0].plot_x_label('$v_2$')
-# # ax[1,0].plot_y_label('$t$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v2-t')
-# plt.savefig(save_path, dpi=1000)
+# V2 = np.linspace(min(v2), max(v2), 100)
+# W1 = np.linspace(min(w1), max(w1), 100)
+# V2, W1 = np.meshgrid(v2, w1)
+interp = InterpolateND(gl_data, *ctrl_vals)
+# interp = pot.build_interpolator(data['gl'], constants=csts)
+# G = interp(V2,W1)#*1E4
+interp(*COR)#*1E4
+
+interp.Crossection2D(phys_param='gl')
+interp.Crossection3D(COR, phys_param='gl')
 
 plt.show()
 

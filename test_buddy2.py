@@ -11,6 +11,8 @@ import qudipy.potential as pot
 import qudipy.qutils as qt
 import qudipy.utils.helpers as hp
 
+from qudipy.potential import InterpolateND
+
 import qudipy.starkshift as ss
 from qudipy.utils.constants import Constants
 import qudipy.potential.InterpolateND as interp_nd
@@ -351,232 +353,87 @@ plt.tight_layout()
 save_path = os.path.join(png_dir, 'g1_1d_dots_array.png')
 plt.savefig(save_path, dpi=1000)
 
-# ----------------------------------------------------------------------
-
-# g1 raw
-fig, (ax1,ax2,ax3) = plt.subplots(3,1)
-
-# g1(v1)
-ax1.plot(v1, g1_sort[0], '-o')
-ax1.set_title("g1")
-ax1.set_xlabel("v1")
-ax1.set_ylabel("g")
-
-# g1(v2)
-ax2.plot(v2, g2_sort[0], '-o')
-ax2.set_title("g1")
-ax2.set_xlabel("v2")
-ax2.set_ylabel("g")
-
-# g1(t)
-ax3.plot(w1, g3_sort[0], '-o')
-ax3.set_title("g1")
-ax3.set_xlabel("t")
-ax3.set_ylabel("g")
-
-plt.tight_layout()
-
-save_path = os.path.join(png_dir, 'g1_1d_dots.png')
-plt.savefig(save_path, dpi=1000)
-
-# g1 interpolation -------------------------------------------------------------
-
-#1D
-fig, (ax1,ax2,ax3) = plt.subplots(3,1)
-
-# g1(v1)
-X = np.linspace(min(v1), max(v1))
-interp = interp1d(v1, g1_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax1.plot(X,G)
-ax1.set_title("g1")
-ax1.set_xlabel("v1")
-ax1.set_ylabel("g")
-
-# g1(v2)
-X = np.linspace(min(v2), max(v2))
-interp = interp1d(v2, g2_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax2.plot(X,G)
-ax2.set_title("g1")
-ax2.set_xlabel("v2")
-ax2.set_ylabel("g")
-
-# g1(t)
-X = np.linspace(min(w1), max(w1))
-interp = interp1d(w1, g3_sort[0])
-# G = interp(X)*1E4
-G = interp(X)#*1E4
-
-ax3.plot(X,G)
-ax3.set_title("g1")
-ax3.set_xlabel("t")
-ax3.set_ylabel("g")
-
-plt.tight_layout()
-
-save_path = os.path.join(png_dir, 'g1_1d.png')
-plt.savefig(save_path, dpi=1000)
 # 3D -------------------------------------------------------------------
 
 v1 = np.array(data['pl'])
 v2 = np.array(data['pr'])
-# w1 = np.array(np.unique(data['t']))
 w1 = np.array(data['t'])
 
 
 # g1 interpolation -----------------------------
 
-# test
+# coord = []
+# coord.append(v1)
+# coord.append(v2)
+# coord.append(w1)
 
 cartcoord = list(zip(v2,w1))
 V2 = np.linspace(min(v2), max(v2), 100)
 W1 = np.linspace(min(w1), max(w1), 100)
 # V2, W1 = np.meshgrid(v2, w1)
-interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
+interp = InterpolateND(data['gl'], v1, v2, w1)
 # interp = pot.build_interpolator(data['gl'], constants=csts)
-G = interp(V2,W1)#*1E4
-G[G == 0.0] = 'nan'
+# G = interp(V2,W1)#*1E4
+interp(V2,W1)#*1E4
 
-# fig = plt.figure(figsize=(16, 12))
-fig = plt.figure()
-ax = fig.add_subplot(111)
-# img = ax.imshow(G)
-img = ax.scatter(V2,W1,G)
-cb = plt.colorbar(img, pad=0.2)
-ax.set_title("g1")
-ax.set_xlabel("v2")
-ax.set_ylabel("t")
-save_path = os.path.join(png_dir, 'g1_3d.png')
-plt.savefig(save_path, dpi=1000)
+interp.Crossection2D(phys_param='gl')
 
-
-cartcoord = list(zip(v2,w1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-V2, W1 = np.meshgrid(v2, w1)
-interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-G = interp(V2,W1)#*1E4
-G[G == 0.0] = 'nan'
-
-# fig = plt.figure(figsize=(16, 12))
-fig = plt.figure()
-ax = fig.add_subplot(111)
-# img = ax.imshow(G)
-img = ax.scatter(V2,W1,G)
-cb = plt.colorbar(img, pad=0.2)
-ax.set_title("g1")
-ax.set_xlabel("v2")
-ax.set_ylabel("t")
-save_path = os.path.join(png_dir, 'g1_3d.png')
-plt.savefig(save_path, dpi=1000)
-
-
-
-# cartcoord = list(zip(v1,v2,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-# # X, Y, Z = np.meshgrid(v1, v2, w1)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# G = interp(X, Y, Z)#*1E4
 # G[G == 0.0] = 'nan'
 
 # # fig = plt.figure(figsize=(16, 12))
 # fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# img = ax.scatter(xs = X, ys = Y, zs = Z, c=G, alpha=0.15)
+# ax = fig.add_subplot(111)
+# # img = ax.imshow(G)
+# img = ax.scatter(V2,W1,G)
 # cb = plt.colorbar(img, pad=0.2)
 # ax.set_title("g1")
-# ax.set_xlabel("v1")
-# ax.set_ylabel("v2")
-# ax.set_zlabel("t")
+# ax.set_xlabel("v2")
+# ax.set_ylabel("t")
 # save_path = os.path.join(png_dir, 'g1_3d.png')
 # plt.savefig(save_path, dpi=1000)
 
-# # g2 interpolation --------------------------
-# cartcoord = list(zip(v1,v2,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# Z = np.linspace(min(w1), max(w1))
-# X, Y, Z = np.meshgrid(X, Y, Z)
-# interp = LinearNDInterpolator(cartcoord, data['gr'], fill_value=0)
-# G = interp(X, Y, Z)#*1E4#/1.6E-19*1E4
+# cartcoord = list(zip(v2,w1))
+# V2 = np.linspace(min(v2), max(v2), 100)
+# W1 = np.linspace(min(w1), max(w1), 100)
+# # V2, W1 = np.meshgrid(v2, w1)
+# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
+# # interp = pot.build_interpolator(data['gl'], constants=csts)
+# G = interp(V2,W1)#*1E4
 # G[G == 0.0] = 'nan'
 
 # # fig = plt.figure(figsize=(16, 12))
 # fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# img = ax.scatter(xs = X, ys = Y, zs = Z, c=G, alpha=0.15)
+# ax = fig.add_subplot(111)
+# # img = ax.imshow(G)
+# img = ax.scatter(V2,W1,G)
 # cb = plt.colorbar(img, pad=0.2)
-# ax.set_title("g2")
-# ax.set_xlabel("v1")
-# ax.set_ylabel("v2")
-# ax.set_zlabel("t")
-# save_path = os.path.join(png_dir, 'g2.png')
+# ax.set_title("g1")
+# ax.set_xlabel("v2")
+# ax.set_ylabel("t")
+# save_path = os.path.join(png_dir, 'g1_3d.png')
 # plt.savefig(save_path, dpi=1000)
 
-# # plt.show()
-
-
-# # cross sections --------------------------
-# plt.figure()
-# # v1/v2
-# cartcoord = list(zip(v1,v2))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(v2), max(v2))
-# X, Y = np.meshgrid(X, Y)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_1/v_2$')
-# plt.xlabel('$v_1$')
-# plt.ylabel('$v_2$')
-# # ax[1,0].plot_x_label('$v_1$')
-# # ax[1,0].plot_y_label('$v_2$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v1-v2.png')
-# plt.savefig(save_path, dpi=1000)
-
-# plt.figure()
-# # v1/t
-# cartcoord = list(zip(v1,w1))
-# X = np.linspace(min(v1), max(v1))
-# Y = np.linspace(min(w1), max(w1))
-# X, Y = np.meshgrid(X, Y)
-# interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_1/t$')
-# plt.xlabel('$v_1$')
-# plt.ylabel('$t$')
-# # ax[1,0].plot_x_label('$v_1$')
-# # ax[1,0].plot_y_label('$t$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v1-t.png')
-# plt.savefig(save_path, dpi=1000)
-
-# plt.figure()
-# # v2/t
 # cartcoord = list(zip(v2,w1))
-# X = np.linspace(min(v2), max(v2))
-# Y = np.linspace(min(w1), max(w1))
-# X, Y = np.meshgrid(X, Y)
+# # Y = np.linspace(min(v2), max(v2))
+# # Z = np.linspace(min(w1), max(w1))
+# V2, W1 = np.meshgrid(v2, w1)
 # interp = LinearNDInterpolator(cartcoord, data['gl'], fill_value=0)
-# Z0 = interp(X, Y)*1E4#/1.6E-19*1E4
-# img = plt.pcolormesh(X, Y, Z0)
-# plt.title('$v_2/t$')
-# plt.xlabel('$v_2$')
-# plt.ylabel('$t$')
-# # ax[1,0].plot_x_label('$v_2$')
-# # ax[1,0].plot_y_label('$t$')
-# plt.colorbar(img) # Color Bar
-# save_path = os.path.join(png_dir, 'v2-t')
+# G = interp(V2,W1)#*1E4
+# G[G == 0.0] = 'nan'
+
+# # fig = plt.figure(figsize=(16, 12))
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# # img = ax.imshow(G)
+# img = ax.scatter(V2,W1,G)
+# cb = plt.colorbar(img, pad=0.2)
+# ax.set_title("g1")
+# ax.set_xlabel("v2")
+# ax.set_ylabel("t")
+# save_path = os.path.join(png_dir, 'g1_3d.png')
 # plt.savefig(save_path, dpi=1000)
+
+
 
 plt.show()
 
