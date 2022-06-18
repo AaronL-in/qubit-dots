@@ -1,3 +1,0 @@
-'''
-Charge stability module
-'''
