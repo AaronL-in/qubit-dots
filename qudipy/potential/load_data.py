@@ -211,14 +211,19 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # Extract items
         x = data[0,1:]
         y = data[1:,0]
-        pot = data[1:,1:]        
+        pot = data[1:,1:]       
+        
+        constants = qd.Constants('vacuum') 
 
         # Convert units if needed
         if f_pot_units == 'eV':
             # Just need to get electron charge
-            constants = qd.Constants('vacuum')
             pot *= constants.e
-        
+
+        if f_pot_units == 'V':
+            # Just need to get electron charge
+            pot *= - constants.e
+
         if f_pot_units == 'kV/cm':
             pot *= 1e5
 
