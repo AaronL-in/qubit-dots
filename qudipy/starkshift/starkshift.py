@@ -2,6 +2,7 @@
 from ..qutils.math import inner_prod
 from ..qutils.solvers import solve_schrodinger_eq
 
+
 # From external libraries
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ class StarkShift:
     Initialize the Stark shift class which can calculate the Stark Shift of an
     electron in a given electric field and/or potential landscape
     '''
-    def __init__(self, gparams, consts):
+    def __init__(self, gparams, consts, temp = 0):
         '''
 
        Parameters
@@ -20,6 +21,9 @@ class StarkShift:
             Contains grid and potential information
         consts : Constants class
             Contains constants value for material system.
+        temp : Float
+            Requires - temp >= 0 
+            The temperature of the system in Kelvins. Default is 0K unless specified.
 
         Returns
         -------
@@ -27,10 +31,26 @@ class StarkShift:
         '''
         self.gparams = gparams
         self.consts = consts
+        self.temp = temp
+
+
+
+    def change_temperature (self, T_new):
+        '''
+        Changes the temperature to the new desired temperature in Kelvins
+
+        Parameters:
+        ------------
+        T_new: Float
+            Requires - T_new >= 0
+        '''
+        self.__init__(self.gparams, self.consts, T_new)
+
+
+
 
     def delta_g(self, e_interp, c_vals, c_val_names, wavefuncs=None):
         '''
-
         Parameters
         ----------
         e_interp: PotentialInterpolator object
@@ -92,6 +112,8 @@ class StarkShift:
         df = pd.DataFrame(c_vals_delta_g, columns=coulmns)
         return df
 
+
+
     def _weighted_average(self, wavefunc, observable):
         '''
         Calculates the average of an observable, weighted by the probability density of a wavefunction
@@ -114,3 +136,52 @@ class StarkShift:
 
 
 
+    def temp_g_factor (self, material=None):  
+        '''
+        Returns the T dependent deviation g-factor for an electron via linear interpolation
+
+        Parameters:
+        -----------------
+
+        Keyword Arguments:
+        -----------------
+        material: Anyof(String, None)
+            The material that the Temperature Dependent g-factor is calculated in. If None Provided
+            the temperature dependent g-factor for Si will be calculated 
+            #TODO add more materials
+
+        Returns
+        -----------------
+        Temperature deviation g-factor approximation
+        '''
+        T = self.temp
+
+        if material in ['Si', 'silicon', 'Silicon', None]:
+        
+            ## make lists of points to interpolate over
+            t = [0,30,50,70,100,150,200,250] #make list of temperature points
+            g = [1.99875,1.99874,1.99872, 1.99870,1.99865,1.99860,1.99850,1.99840] #make list of g-factor points
+        
+            # find the index of the interval T lies within
+            i = None
+            if T >= 250:
+                i = 6
+            else:
+                for temperature in t:
+                    if T < temperature:
+                        while i == None:
+                            i = t.index(temperature) - 1
+        
+            ## linearly interpolate and return the g-factor value 
+            dt= (t[i]-t[i+1]) 
+            interp = (g[i] - g[i+1])/dt * T + (t[i]*g[i+1] - t[i+1]*g[i])/dt #linear interpolation 
+        
+            return interp
+        else:
+            print("Only available for Silicon in current version, do not enter any keyword here")
+
+
+
+
+
+            

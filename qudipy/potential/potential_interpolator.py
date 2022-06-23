@@ -386,25 +386,27 @@ class PotentialInterpolator:
             
             if not show_wf:
                 fig, ax = plt.subplots(figsize=(8,8))
-                ax.imshow(int_pot, interpolation='bilinear', cmap='viridis',
+                img = ax.imshow(int_pot, interpolation='bilinear', cmap='viridis',
                                origin='lower', extent=[self.x_coords.min()/1E-9, 
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
+                fig.colorbar(img, ax=ax,location='right', shrink=0.7)
                 ax.set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
-                       title='2D potential')
+                       title='2D profile')
             # Overlay wavefunction if desired
             else:
                 fig, ax = plt.subplots(1,2,figsize=(12,8))
                 
                 # Plot potential in first subplot
-                ax[0].imshow(int_pot, interpolation='bilinear', cmap='viridis',
+                im0 = ax[0].imshow(int_pot, interpolation='bilinear', cmap='viridis',
                                origin='lower', extent=[self.x_coords.min()/1E-9, 
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
+                fig.colorbar(im0, ax=ax[0],location='right', shrink=0.7)
                 ax[0].set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
-                            title='2D potential')
+                            title='2D profile')
                 
                 # Find the wavefunction probability
                 gparams = GridParameters(self.x_coords, y=self.y_coords, 
@@ -415,11 +417,12 @@ class PotentialInterpolator:
                 
                 state_prob = np.real(np.multiply(state, state.conj()))
                        
-                ax[1].imshow(state_prob, interpolation='bilinear', cmap='viridis',
+                im1 = ax[1].imshow(state_prob, interpolation='bilinear', cmap='viridis',
                                origin='lower', extent=[self.x_coords.min()/1E-9, 
                                self.x_coords.max()/1E-9, self.y_coords.min()/1E-9,
                                self.y_coords.max()/1E-9]
                                )
+                fig.colorbar(im1, ax=ax[1],location='right', shrink=0.7)
                 ax[1].set(xlabel='x-coords [nm]',ylabel='y-coords [nm]',
                             title=f'State {wf_n} probability')
                           

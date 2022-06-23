@@ -24,7 +24,6 @@ def _load_one_pulse(f_name):
         Control pulse object containing all information loaded from the file.
 
     '''
-        
     # Check file extension
     if f_name[-6::] != ".ctrlp":
         raise ValueError("Unrecognized control pulse file type..." +
@@ -50,7 +49,7 @@ def _load_one_pulse(f_name):
             # Remove any leading/ending white space and convert to lowercase
             pulse_type = x.split(":")[1].strip().lower()
         elif "pulse length:" in x.lower():
-            pulse_length = int(x.split(":")[1].strip().split(" ")[0])
+            pulse_length = float(x.split(":")[1].strip().split(" ")[0]) 
         elif "ideal gate:" in x.lower():
             ideal_gate = x.split(":")[1].strip().upper()
             
@@ -95,6 +94,7 @@ def load_pulses(f_names):
     
     # Loop through each file, load the pulse then add to the pulse dictionary.
     for f in f_names:
+        print(str(f))
         curr_pulse = _load_one_pulse(f)
         
         pulse_dict[curr_pulse.name] = curr_pulse
@@ -209,7 +209,8 @@ def check_ideal_gate(gate_name, qubit_idx=None):
     This function checks if the supplied gate_name is a valid ideal gate
     keyword used to simulate an ideal quantum circuit. 
     Current supported keywords are
-    I, RX###, RY###, RZ###, H, CTRLX, CTRLY, CTRLZ, SWAP, RSWAP
+    I, RX###, RY###, RZ###, H, CTRLX, CTRLY, CTRLZ, SWAP, RSWAP, R(x,y,z)###,
+    and negative rotations are supported by RX-###, RY-###, RZ-###, R(x,y,z)-###
     where ### in the R gates indicates the gate's rotation angle in degrees.
 
     Parameters
@@ -235,18 +236,65 @@ def check_ideal_gate(gate_name, qubit_idx=None):
     # If gate name is None type then that means there was no ideal gate line
     # specified in the corresponding pulse file
     # Also, quick check by looking at gate name length
-    if gate_name == None or len(gate_name) not in [1,4,5]:
+    if gate_name == None or len(gate_name) not in [1,4,5,6,10,11]:
         return False
     
     # Check for an R gate first
-    if gate_name[0] == "R" and gate_name[1] in ["X","Y","Z"]:
-        # Now check that the next three characters are ints
-        for idx in range(2,5):
+    
+    # helper function for organization
+    def valid_rot_angle(gate_name, arbitrary_rotation):
+        '''
+        @author: Madi
+        returns True if the angle connected to the
+        rotation gate has the form ### or -###
+
+        Parameters:
+        -------------
+        gate_name: Str
+            the gate name to be tested
+        arbitrary_rotation: Bool
+            True if the rotation is an arbitrary rotation, and
+            False otherwise
+
+        Returns
+        -----------
+        Boolean
+        '''
+        shift = 0
+        if arbitrary_rotation:
+            shift = 5
+        if gate_name[2 + shift] == "-":
+            strt_ind = 3 + shift
+            end_ind = 6 + shift
+        else:
+            strt_ind = 2 + shift
+            end_ind = 5 + shift
+        for idx in range(strt_ind,end_ind):
             try:
                 int(gate_name[idx])
             except (ValueError, IndexError):
                 return False
         return True
+    
+    # Check for an R gate 
+    if gate_name[0] == "R": 
+        if gate_name[1] in ["X","Y","Z"]:
+            # Now check that the next three characters are ints
+            if valid_rot_angle(gate_name, False):
+                return True
+        
+        if gate_name[1] == "(" and gate_name[7] == ")":
+            # Check that the brackets are formated correctly
+            for ind in range(2,7):
+                if ind % 2 == 0:
+                    if not gate_name[ind].isnumeric():
+                        return False
+                else:
+                    if not gate_name[ind] == ",":
+                        return False
+            # Now check that the next three characters are ints
+            if valid_rot_angle(gate_name, True):
+                return True
     
     # Check I, H, and CTRL gates, and (if CTRL, SWAP, or RSWAP gate)
     # check qubit number (must be an even number of used qubits)

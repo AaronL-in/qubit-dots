@@ -47,7 +47,13 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
     interp_obj : Mod_RegularGridInterpolator class
         Interpolant object for the data inputted into the function.
     '''
-    
+    # now it can load both potentials and electric fields
+    if 'potentials' in load_data_dict.keys():
+        f_type = 'potentials'
+    if 'electric' in load_data_dict.keys():
+        f_type = 'electric'
+
+
     # Get first set of x and y coordinates
     x_coords = load_data_dict['coords'][0]
     y_coords = load_data_dict['coords'][1]
@@ -89,10 +95,10 @@ def build_interpolator(load_data_dict, constants=qd.Constants(),
         y_idx = qd.utils.find_nearest(y_coords, y_slice)[0]
     for idx, curr_gate_idx in enumerate(product(*temp_n_dims)):
         if y_slice is None:
-            all_data_stacked[idx,:,:] = load_data_dict['potentials'][idx]
+            all_data_stacked[idx,:,:] = load_data_dict[f_type][idx]
         else:
             all_data_stacked[idx,:] = np.squeeze(
-                load_data_dict['potentials'][idx][y_idx,:])
+                load_data_dict[f_type][idx][y_idx,:])
     
     all_data_stacked = np.reshape(all_data_stacked,(n_dims))
     
@@ -205,14 +211,25 @@ def load_potentials(ctrl_vals, ctrl_names, f_type='pot', f_dir=None,
         # Extract items
         x = data[0,1:]
         y = data[1:,0]
-        pot = data[1:,1:]        
+        pot = data[1:,1:]       
+        
+        constants = qd.Constants('vacuum') 
 
         # Convert units if needed
         if f_pot_units == 'eV':
             # Just need to get electron charge
-            constants = qd.Constants('vacuum')
             pot *= constants.e
-            
+
+        if f_pot_units == 'V':
+            # Just need to get electron charge
+            pot *= - constants.e
+
+        if f_pot_units == 'kV/cm':
+            pot *= 1e5
+
+        if f_pot_units == 'V/nm':
+            pot *= 1e9
+
         if f_dis_units == 'nm':
             x *= 1E-9
             y *= 1E-9

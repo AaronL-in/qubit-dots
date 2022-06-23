@@ -11,6 +11,7 @@ import copy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
 from scipy.ndimage import gaussian_filter
 from sklearn import cluster
@@ -438,7 +439,7 @@ class CSDAnalysis:
 
     def __plot_heatmap(self, data, x_values, y_values, x_label, y_label, cbar=True, cbar_kws=None):
         '''
-        Private function which formats and plots Seaborn heatmaps.
+        Private function which formats and plots pcolormesh heatmaps.
 
         Parameters
         ----------
@@ -475,12 +476,30 @@ class CSDAnalysis:
         # Cast to a dataframe if data is not already for ease of plotting
         if not isinstance(data, type(pd.DataFrame())):
             data = pd.DataFrame(data, index=y_values, columns=x_values)
-        s = sns.heatmap(data, cbar=cbar, xticklabels=int(self.csd.num/5), 
-                        yticklabels=int(self.csd.num/5), cbar_kws=cbar_kws)
-        # Flip y axis so y_values increasing from bottom to top 
-        s.axes.invert_yaxis()
-        s.axes.set_xlabel(x_label)
-        s.axes.set_ylabel(y_label)
+        
+        # Initialize Plot
+        fig, ax = plt.subplots()
+        
+        # Set Colorbar
+        cmap = mpl.cm.magma
+        
+        # Create Plot
+        if x_values is not None and y_values is not None:
+          s = ax.pcolormesh(x_values, y_values, data, shading ='gouraud', cmap = cmap)
+        else:
+          s = ax.pcolormesh(data, shading ='flat', cmap = cmap)
+          
+        # Format Colourbar
+        if cbar:
+          norm = mpl.colors.Normalize(vmin = data.min().min(), vmax = data.max().max())
+          label = ""
+          if cbar_kws != {}:
+            label = list(cbar_kws.values())[0]
+          fig.colorbar(mpl.cm.ScalarMappable(norm = norm, cmap = cmap), orientation='vertical', label=label)
+        
+        # Set Axis Titles
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
         plt.show()
 
     def plot_csd_with_lines(self):
@@ -500,8 +519,13 @@ class CSDAnalysis:
 
         # Create the heatmap figure
         f, ax = plt.subplots(1,1)
-        sns.heatmap(self.csd.csd, cbar=False, xticklabels=int(num/5), yticklabels=int(num/5))
-        ax.axes.invert_yaxis()
+        cmap = mpl.cm.magma
+        C = self.csd.csd
+        x_vals = np.linspace(0, list(C.columns)[-1], num)
+        y_vals = np.linspace(0, list(C.columns.values)[-1], num)
+        s = ax.pcolormesh(x_vals, y_vals, C, shading ='nearest', cmap = cmap)
+        ax.set_xlabel("V$_1$")
+        ax.set_ylabel("V$_2$")
 
         # Create second axis with same x and y axis as the heatmap
         ax2 = ax.twinx().twiny()
@@ -619,10 +643,15 @@ class CSDAnalysis:
         y_hole = self.triple_points[1][1]
 
         # Create the heatmap figure
-        f, ax = plt.subplots(1,1)
         num = self.csd.csd.shape[0]
-        sns.heatmap(self.csd.csd, cbar=False, xticklabels=int(num/5), yticklabels=int(num/5))
-        ax.axes.invert_yaxis()
+        f, ax = plt.subplots(1,1)
+        cmap = mpl.cm.magma
+        C = self.csd.csd
+        x_vals = np.linspace(0, list(C.columns)[-1], num)
+        y_vals = np.linspace(0, list(C.columns.values)[-1], num)
+        s = ax.pcolormesh(x_vals, y_vals, C, shading ='nearest', cmap = cmap)
+        ax.set_xlabel("V$_1$")
+        ax.set_ylabel("V$_2$")
 
         # Create second axis with same x and y axis as the heatmap
         ax2 = ax.twinx().twiny()
@@ -655,3 +684,4 @@ class CSDAnalysis:
         ax2.get_xaxis().set_ticks([])
         ax.set(xlabel=r'V$_1$', ylabel=r'V$_2$')
         plt.show()
+      

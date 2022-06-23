@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-
 Script for calculating spin evolution.
-
 I strongly recommend that you read the "Spin simulator" chapter of the 
 write-up **before** familiarizing yourself with this code:
     https://www.overleaf.com/project/5f4fcbdd5566fb0001f3b6aa
-
 @author: bkhromet
 """
 import os
@@ -53,7 +50,6 @@ def p(B_0, T):
     -------
     p_ : float
         Population of the spin-up state.
-
     """
     p_ = 0
     if T > 1e-2:
@@ -107,7 +103,6 @@ def x_sum(N):
     : 2D complex array
         Sum of X_k-matrices for all k in [1,N] weighted by
         consts.muB/consts.hbar .
-
     """
     return consts.muB / consts.hbar * sum(ops.construct(N, k,ops['PAULI_X']) for k in range(1, N+1))
 
@@ -130,7 +125,6 @@ def y_sum(N):
     : 2D complex array
         Sum of Y_k-matrices for all k in[1,N] weighted 
         by consts.muB / consts.hbar.
-
     """
     return consts.muB / consts.hbar * sum(ops.construct(N, k,ops['PAULI_Y']) for k in range(1, N+1))
 
@@ -148,7 +142,6 @@ def z_sum_omega(N, B_0, f_rf):
         Zeeman field [T].
     f_rf : float
         Frequency of the ESR field [Hz].
-
     Keyword Arguments
     -----------------
     None.
@@ -158,7 +151,6 @@ def z_sum_omega(N, B_0, f_rf):
     : 2D complex array
         Sum of Z_k-matrices for all k in [1,N] 
         weighted by i(omega - omega_rf)/2.
-
     """
     return ((consts.muB * B_0 / consts.hbar - pi * f_rf)
     * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
@@ -188,8 +180,6 @@ def z_sum_p(N, B_0, T, T_1):
     -------
     : 2D complex array
         Sum of Z_k-matrices for all k in [1,N] weighted by (2*p(B_0,T)-1) / T_1
-
-
     """
     return ((2 * p(B_0, T) - 1) / T_1 
     * sum(ops.construct(N, k,ops['PAULI_Z']) for k in range(1, N+1)))
@@ -218,7 +208,6 @@ def const_dict(N_0, T, B_0, f_rf, T_1):
     -----------------
     None.
     
-
     Returns 
     -------
     const_dict_: list of dicts
@@ -346,23 +335,19 @@ class SpinSys:
         Returns
         -------
         None.
-
         """
         def __is_power_2(num):
             """
             Hidden function that checks if the integer number is an integer
             power of 2 
-
             Parameters
             ----------
             num : int
                 Integer to be checked.
-
             Returns
             -------
             ispower2 : bool
                 True if num is a power of 2, False otherwise
-
             """
             while (num % 2 == 0):  
                 num = num / 2
@@ -432,7 +417,6 @@ class SpinSys:
     def hamiltonian(self, const_dict_N, pulse_params=None):
         """
         Builds the system Hamiltonian at a particular point of time.
-
         Parameters
         ----------
         const_dict_N: dictionary
@@ -444,12 +428,10 @@ class SpinSys:
              Dictionary of values of delta_g[i], 
              J[i], B_rf taken at a particular point of time. 
              The default is None interpreted as 'no pulse'
-
         Returns
         -------
         ham: 2D complex array
             Array that represents the Hamiltonian.
-
         """
         ham = const_dict_N["z_sum_omega"].copy()
                 #copy is in order not to modify the const_dict_N entries; 
@@ -503,7 +485,6 @@ class SpinSys:
         """
         Creates right-hand side of the Lindblad equation at a particular
         point of time
-
         Parameters
         ----------
         rho_mod: 2D complex array 
@@ -511,19 +492,16 @@ class SpinSys:
             Runge-Kutta method is used for.
         const_dict_N: dictionary
             Dictionary of constant matrices 2**N x 2**N.
-
         Keyword Arguments
         -----------------
         pulse_params : dictionary, optional
              Dictionary of values of delta_g[i], J[i], B_rf taken at a 
              particular point of time. 
              The default is None interpreted as 'no pulse'.
-
         Returns
         -------
         lin : 2D complex array
             the right-hand side of the Lindblad equation
-
         """
         N = int(log2(const_dict_N["x_sum"].shape[0])) 
             #automatically calculating the size
@@ -554,7 +532,6 @@ class SpinSys:
         """
         Function that performs spin system evolution under the external pulse,
         i.e. updates the system density matrix.
-
         Parameters
         ----------
         pulses : ControlPulse object, or tuple/list of such objects
@@ -612,7 +589,6 @@ class SpinSys:
               "sigma_z_{i}" : 1D float array
                   Bloch vector components of the i-th electron, if i
                   is in track_qubits iterable, and eval_Bloch_vectors is True.
-
         """
         ret_dict = {}    #dictionary to be returned 
               
@@ -753,7 +729,6 @@ class SpinSys:
     def track_subsystem(self, track_qubits=None, eval_Bloch_vectors=False):
         """
         Gives the specified system submatrices and Bloch vectors (if tracked)
-
         Parameters
         ----------
         None.
@@ -770,7 +745,6 @@ class SpinSys:
         ret_dict: dictionary of numpy arrays
             Dictionary containing subsystem density matrices, and their 
             Bloch vectors if specified.
-
         """
         ret_dict = {}
         
@@ -809,6 +783,3 @@ class SpinSys:
                         @ ops['PAULI_Z'])
                 
         return ret_dict
-            
-            
-        

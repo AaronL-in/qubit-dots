@@ -68,7 +68,7 @@ class Constants:
             self.me = self.m0*0.191         # Effective mass [kg]
             self.mu_2 = None                # Quadratic Stark shift coefficient [m^2/V^2]
         elif material_system == "GaAs":
-            self.epsR = 12.4                # Dielectric constant
+            self.epsR = 13.1                # Dielectric constant
             self.eps = self.eps0*self.epsR  # Permitivity [F/m]
             self.me = self.m0*0.067         # Effective mass [kg]
             self.mu_2 = None                # Quadratic Stark shift coefficient [m^2/V^2]
