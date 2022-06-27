@@ -194,7 +194,7 @@ def RSP_time_evolution_1D(pot_interp, ctrl_pulse, dt=5E-16,
                 outer_pot_idx += 1
                 
                 # Get the end t_idx for the end of current potential chunk
-                end_t_idx = outer_pot_idx*chunk_amt - 1;
+                end_t_idx = outer_pot_idx*chunk_amt - 1
                 if end_t_idx > len(t_pts):
                     end_t_idx = len(t_pts)
                 
@@ -205,6 +205,12 @@ def RSP_time_evolution_1D(pot_interp, ctrl_pulse, dt=5E-16,
                 
             # Get current potential and increment counter
             curr_potential = pot_chunk[pot_idx]
+
+            # TODO: Make sure data is of type float64. pulse_chunck is of type 
+            # float64 while the pot_chunk returned from pot_interp(pulse_chunk)
+            # is of unspeficied float type "float".
+            curr_potential = np.float64(curr_potential)
+
             pot_idx += 1
 
             # diagonal matrix of potential energy in position space

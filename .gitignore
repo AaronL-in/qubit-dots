@@ -1,10 +1,25 @@
+# Ignore downloaded tutorial data to prevent slow push
+# tutorials/QuDiPy tutorial data/
 QuDiPy tutorial data/
+
 *.ipynb_checkpoints
 animation_plot/
 testing.py
+
 # I use tutorials/test.py for testing purposes and don't want it tracked
 tutorials/test.py
-tutorials/QuDiPy tutorial data
+# I sometimes use the cProfile package in tutorial/test.py for code optimization
+# This generates output.dat, output_calls.txt, output_time.txt
+tutorials/output.dat
+tutorials/output_calls.txt
+tutorials/output_time.txt
+tutorials/qudipy
+test_buddy*.py
+
+# Ignore any text file that contains alternate simulator names
+names.txt
+
 *.pyc
 __pycache__/
 *.csv
+
