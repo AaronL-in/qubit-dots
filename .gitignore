@@ -19,6 +19,10 @@ test_buddy*.py
 # Ignore any text file that contains alternate simulator names
 names.txt
 
+# ignore unneeded ctrlp and qcirc files
+*.qcirc
+*.ctrlp
+
 *.pyc
 __pycache__/
 *.csv
