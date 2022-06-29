@@ -1,6 +1,6 @@
 # QuDiPy (Quantum Dots in Python)
 
-This respository aims to be a general purpose tool for simulating electron dynamics in quantum dots with an emphasis on quantum information processing. We adopt an effective mass formalism which enables simulations across a variety of material systems and heterostructures. The code base is under construction by the Coherent Spintronics Group (CSG) at the University of Waterloo. The three codebase maintainers are Brandon Buonacorsi (@theycallmesimba), Stephen Harrigen (@bleutooth65), and Bohdan Khromets (@hromecB). Reach out to any of us if you have questions regarding this project.
+This respository aims to be a general purpose tool for simulating electron dynamics in quantum dots with an emphasis on quantum information processing. We adopt an effective mass formalism which enables simulations across a variety of material systems and heterostructures. The code base is under construction by the Coherent Spintronics Group (CSG) at the University of Waterloo. The two codebase maintainers are Bohdan Khromets (@hromecB) and Zach D. Merino (@zmerino). Reach out to either of us if you have questions regarding this project.
 
 Version 1.0 is currently under development. When completed, we aim to have the following capabilities:
 - Simulation of charge stability diagrams using either a constant interaction model or a Hubbard Hamiltonian model. In addition, this module can fit charge stability data to extract capacitances for the constant interaciton model.
