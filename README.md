@@ -10,6 +10,6 @@ Version 1.0 is currently under development. When completed, we aim to have the f
 - Calculation of the many-electron spectra of a general quantum dot network using a modified LCHO-CI approach. These energy spectra can be mapped onto a Heisenberg Hamiltonian to determine the pairwise exchange interactions of electrons in the dot network.
 - Tools for finding optimal control pulses such as GRAPE and constant-adiabatic pulse engineering.
 
-You can see the general progress in the module by going to the tutorials folder and following along the Jupyter notebooks.  Currently, the data for the tutorials are hosted elsewhere.  If you would like these available to you, please email brandonbuonacorsi@gmail.com (subject line: QuDiPy).  We emphasize that this is work in progress.
+You can see the general progress in the module by going to the tutorials folder and following along the Jupyter notebooks.  Currently, some of the data for the tutorials are hosted elsewhere.  If you would like these available to you, please email either bohdan.khromets@uwaterloo.ca or zmerino@uwaterloo.ca (subject line: QuDiPy).  We emphasize that this is work in progress.
 
 For development guidelines, see https://github.com/mainCSG/QuDiPy/blob/master/Development%20Guidelines.md.
