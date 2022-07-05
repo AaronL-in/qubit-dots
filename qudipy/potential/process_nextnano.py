@@ -15,6 +15,8 @@ from scipy import constants
 
 def get_files(dir):
 
+    test = os.scandir(dir)
+
     # Collect the names of every subdirectory in the dir path
     list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
 
