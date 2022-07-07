@@ -1,0 +1,16 @@
+# AVS/Express field file
+#
+ndim = 3
+dim1 = 152
+dim2 = 59
+dim3 = 42
+nspace = 3
+veclen = 1
+data = double
+field = rectilinear
+label = potential
+
+variable 1 file=potential.dat filetype=ascii skip=0 offset=0 stride=1
+coord 1 file=potential.coord filetype=ascii skip=0 offset=0 stride=1
+coord 2 file=potential.coord filetype=ascii skip=153 offset=0 stride=1
+coord 3 file=potential.coord filetype=ascii skip=213 offset=0 stride=1

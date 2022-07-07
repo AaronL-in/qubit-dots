@@ -1,0 +1,501 @@
+ # 1D sample for solving current-poisson
+
+#---------USER OPTIONS---------------------------------------------------------
+
+# If the gate should be made of metal, choose $METALLICGATE = 1             (contact type is schottky).
+# For $METALLICGATE = 0 the gate is made of a doped semiconductor (poly-Si) (contact type is fermi).
+$METALLICGATE = 1                   # 0 (n-poly-Si) or 1 (metallic gate)
+
+# If Schroedinger equation (quantum mechanics) should not be solved, choose $QM = 0.
+# In other case choose $QM = 1.
+$QM = 0              # 0 (classical calculation) or 1 (quantum mechanical calculation)
+
+#If more than one gate is to be simulated then make $MULTI_GATE = 1, otherwise make it equal to 0 
+$MULTI_GATE = 1 
+
+#------------------------------------------------------------------------------
+
+#----------VARIABLES-----------------------------------------------------------
+
+#SEMICONDUCTOR MATERIALS
+$Al_WORKFUN = 4.1 
+$Si_AFFINITY = 4.05 
+$SiO2_AFFINITY = 0.9 
+$BARRIER = $Al_WORKFUN - $SiO2_AFFINITY 
+
+#APPLIED 
+
+# Inner gates
+$V2 = 0.2           #Voltage applied on Left gate
+$V4 = 0.22          #Voltage applied on Right gate
+
+# Outer gates
+$V1 = 0.1             #Voltage applied on Left gate
+$V5 = 0.1            #Voltage applied on Right gate
+
+# Ceneter gate
+$V3 = 0.2             #Voltage applied on the Center gate
+
+#Z DIRECTION
+$METAL_THICKNESS = 10.0 
+$OXIDE_THICKNESS = 75         #Thickness of the oxide that should prevent accumulation
+$OXIDE_GATE = 17.0            #Thickness of the oxide where the quantum dot will be formed
+$Si_SUBS_THICKNESS = 70.0     #Thickness of the Si chip
+$DOT_DEPTH_EST = 20.0         #Distance from the SiO2-Si interface into the Si Substrate (z-direction) over which electron accumulation occurs (overestimate)
+$GRIDZ_1 = 2.0                #Default value : 0.2 
+$GRIDZ_2 = 5.0                #Default value : 1.0   
+$GRIDZ_3 = 10.0               #Default value : 5.0
+
+#X DIRECTION
+$GATE_WIDTH_X = 40           #This is the size of the gate metal and must be equal to or larger than $DOT_SIZE
+$GATE_EXTRASIZE = 1          #This is used to extend the region for fine grid around the gate. It must be less than $X_OFFSET_LEFT/RIGHT
+$DOT_SIZE_X = $GATE_WIDTH_X   #Size of the hole-gate which defines the quantum dot
+$GRIDX_1 = 2.0 
+$GRIDX_2 = 4.0 
+
+#Y DIRECTION
+$GATE_WIDTH_Y = 40            #This is the size of the gate metal and must be equal to or larger than $DOT_SIZE
+$DOT_SIZE_Y = $GATE_WIDTH_Y   #Size of the hole-gate which defines the quantum dot
+
+#GATE SEPARATION SETTINGS     #Gates are labelled from as left (L) and right (R), etc.
+$GATE_SEPARATION = 20        #This is the separation between the L and R gates from edge-to-edge
+
+#GRID SETTINGS
+$NUM_GATES = 5               #Total (integer) number of gates to be simulated on left/right
+$X_OFFSET_LEFT = 20          #An extra length added to the left in the X axis (does not include the length covered by the gates on the left side)
+$X_OFFSET_RIGHT = 20         #An extra length added to the rigth in the X axis (does not include the length covered by the gates on the right side)
+$Y_OFFSET_LEFT = 50           #An extra length added to the left in the Y axis
+$Y_OFFSET_RIGHT = 100         #An extra length added to the left in the Y axis - (the gate arm is along this y-direction)
+
+#------------------------------------------------------------------------------
+
+#---------MATLAB VARIABLES-----------------------------------------------------
+
+#MATLAB VARIABLES 
+
+#------------------------------------------------------------------------------
+
+#---------DERIVED PARAMETERS---------------------------------------------------
+
+#OPTIONS
+$SEMICONDUCTORGATE = 1 - $METALLICGATE   # 1 (n-poly-Si) or 0 (metallic gate) (DoNotShowInUserInterface)
+$SINGLE_GATE = 1 - $MULTI_GATE 
+
+#GATE SEPARTION SETTINGS                 #these center offset should be applied along the x axis
+$GATE_CENTER_OFFSET = $GATE_WIDTH_X + $GATE_SEPARATION 
+
+#GRID SETTINGS
+#if $MULTI_GATE      $GATE_SPAN = $GATE_CENTER_OFFSET *2 + $GATE_WIDTH_X/2
+
+#------------------------------------------------------------------------------
+
+global{ 
+   simulate3D{}
+   
+   temperature  = 300
+   substrate{ name = "Si" }
+   crystal_zb{ x_hkl = [1, 0, 0] y_hkl = [0, 1, 0] }
+}<>
+
+grid{
+   zgrid{
+      line{ pos = -$Si_SUBS_THICKNESS spacing = $GRIDZ_3} 
+      line{ pos = -($DOT_DEPTH_EST + $GRIDZ_3) spacing = $GRIDZ_3}
+      line{ pos = -($DOT_DEPTH_EST) spacing = $GRIDZ_1}
+      line{ pos = $OXIDE_GATE + 4*$GRIDZ_1 spacing = $GRIDZ_1}
+      line{ pos = $OXIDE_GATE + 5*$GRIDZ_1  spacing = $GRIDZ_2}
+      line{ pos = $METAL_THICKNESS + $OXIDE_THICKNESS spacing = $GRIDZ_2}
+   }
+   xgrid{
+      line{ pos = -($X_OFFSET_LEFT + $GATE_SPAN) spacing = $GRIDX_2}
+      line{ pos = -($GATE_SPAN + $GATE_EXTRASIZE + $GRIDX_2) spacing = $GRIDX_2}
+      line{ pos = -($GATE_SPAN + $GATE_EXTRASIZE) spacing = $GRIDX_1}
+      line{ pos = ($GATE_SPAN + $GATE_EXTRASIZE - $GRIDX_1) spacing = $GRIDX_1}
+      line{ pos = ($GATE_SPAN + $GATE_EXTRASIZE) spacing = $GRIDX_2}
+      line{ pos = ($X_OFFSET_RIGHT + $GATE_SPAN) spacing = $GRIDX_2}
+   }
+   ygrid{
+      line{ pos = -($Y_OFFSET_LEFT + $GATE_WIDTH_Y/2) spacing = $GRIDX_2}
+      line{ pos = -($GATE_WIDTH_Y/2 + $GATE_EXTRASIZE + $GRIDX_2) spacing = $GRIDX_2}
+      line{ pos = -($GATE_WIDTH_Y/2 + $GATE_EXTRASIZE) spacing = $GRIDX_1}
+      line{ pos = ($GATE_WIDTH_Y/2 + $GATE_EXTRASIZE - $GRIDX_1) spacing = $GRIDX_1}
+      line{ pos = ($GATE_WIDTH_Y/2 + $GATE_EXTRASIZE) spacing = $GRIDX_2}
+      line{ pos = ($Y_OFFSET_RIGHT + $GATE_WIDTH_Y/2) spacing = $GRIDX_2}
+   }}<>
+
+structure{
+   output_material_index{}
+   output_contact_index{}
+   #output_impurities{}
+   
+   #Default Material       #There is an issue whenever I use Air: The result from the potential does not seem physical
+   region{
+      everywhere{}
+      binary{ name = "SiO2" }
+   }   
+
+#----Center_Gate - V3-----------------------------------------------------------------
+
+   # Top Gate ARM
+   region{
+      cuboid{ 
+         x = [-$GATE_WIDTH_X/2, $GATE_WIDTH_X/2]
+         y = [-$GATE_WIDTH_Y/2, $GATE_WIDTH_Y/2 + $Y_OFFSET_RIGHT]
+         z = [$OXIDE_THICKNESS, $OXIDE_THICKNESS + $METAL_THICKNESS] 
+      }
+      contact{ name = "V3" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   } 
+   # Top Gate CENTER - Dot
+   region{
+      cuboid{ 
+         x = [-$DOT_SIZE_X/2, $DOT_SIZE_X/2]
+         y = [-$DOT_SIZE_Y/2, $DOT_SIZE_Y/2]
+         z = [$OXIDE_GATE, $OXIDE_THICKNESS] 
+      }
+      contact{ name = "V3" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   }   
+
+#----Left_Gate1 - V2 -----------------------------------------------------------------
+
+   # Top Gate ARM
+   region{
+      cuboid{ 
+         x = [-$GATE_WIDTH_X/2 - $GATE_CENTER_OFFSET, $GATE_WIDTH_X/2 - $GATE_CENTER_OFFSET]
+         y = [-$GATE_WIDTH_Y/2, $GATE_WIDTH_Y/2 + $Y_OFFSET_RIGHT]
+         z = [$OXIDE_THICKNESS, $OXIDE_THICKNESS + $METAL_THICKNESS] 
+      }
+      contact{ name = "V2" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   } 
+   # Top Gate CENTER - Dot
+   region{
+      cuboid{ 
+         x = [-$DOT_SIZE_X/2 - $GATE_CENTER_OFFSET, $DOT_SIZE_X/2 - $GATE_CENTER_OFFSET]
+         y = [-$DOT_SIZE_Y/2, $DOT_SIZE_Y/2]
+         z = [$OXIDE_GATE, $OXIDE_THICKNESS] 
+      }
+      contact{ name = "V2" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   }   
+#----Right_Gate1 - V4 -----------------------------------------------------------------
+
+   # Top Gate ARM
+   region{
+      cuboid{ 
+         x = [-$GATE_WIDTH_X/2 + $GATE_CENTER_OFFSET, $GATE_WIDTH_X/2 + $GATE_CENTER_OFFSET]
+         y = [-$GATE_WIDTH_Y/2, $GATE_WIDTH_Y/2 + $Y_OFFSET_RIGHT]
+         z = [$OXIDE_THICKNESS, $OXIDE_THICKNESS + $METAL_THICKNESS] 
+      }
+      contact{ name = "V4" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   } 
+   # Top Gate CENTER - Dot
+   region{
+      cuboid{ 
+         x = [-$DOT_SIZE_X/2 + $GATE_CENTER_OFFSET, $DOT_SIZE_X/2 + $GATE_CENTER_OFFSET]
+         y = [-$DOT_SIZE_Y/2, $DOT_SIZE_Y/2]
+         z = [$OXIDE_GATE, $OXIDE_THICKNESS] 
+      }
+      contact{ name = "V4" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   } 
+#----Left_Gate2 - V1 -----------------------------------------------------------------
+
+   # Top Gate ARM
+   region{
+      cuboid{ 
+         x = [-$GATE_WIDTH_X/2 - 2*$GATE_CENTER_OFFSET, $GATE_WIDTH_X/2 - 2*$GATE_CENTER_OFFSET]
+         y = [-$GATE_WIDTH_Y/2, $GATE_WIDTH_Y/2 + $Y_OFFSET_RIGHT]
+         z = [$OXIDE_THICKNESS, $OXIDE_THICKNESS + $METAL_THICKNESS] 
+      }
+      contact{ name = "V1" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   } 
+   # Top Gate CENTER - Dot
+   region{
+      cuboid{ 
+         x = [-$DOT_SIZE_X/2 - 2*$GATE_CENTER_OFFSET, $DOT_SIZE_X/2 - 2*$GATE_CENTER_OFFSET]
+         y = [-$DOT_SIZE_Y/2, $DOT_SIZE_Y/2]
+         z = [$OXIDE_GATE, $OXIDE_THICKNESS] 
+      }
+      contact{ name = "V1" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   }   
+#----Right_Gate2-----------------------------------------------------------------
+
+   # Top Gate ARM
+   region{
+      cuboid{ 
+         x = [-$GATE_WIDTH_X/2 + 2*$GATE_CENTER_OFFSET, $GATE_WIDTH_X/2 + 2*$GATE_CENTER_OFFSET]
+         y = [-$GATE_WIDTH_Y/2, $GATE_WIDTH_Y/2 + $Y_OFFSET_RIGHT]
+         z = [$OXIDE_THICKNESS, $OXIDE_THICKNESS + $METAL_THICKNESS] 
+      }
+      contact{ name = "V5" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   }  
+   # Top Gate CENTER - Dot
+   region{
+      cuboid{ 
+         x = [-$DOT_SIZE_X/2 + 2*$GATE_CENTER_OFFSET, $DOT_SIZE_X/2 + 2*$GATE_CENTER_OFFSET]
+         y = [-$DOT_SIZE_Y/2, $DOT_SIZE_Y/2]
+         z = [$OXIDE_GATE, $OXIDE_THICKNESS] 
+      }
+      contact{ name = "V5" }
+      binary{
+         #if $SEMICONDUCTORGATE  name = "Si"   # n-poly-Si
+         #if $METALLICGATE       name = "SiO2" # must be defined as SiO2 because it is next to a SiO2 layer (limitation of nextnano++)
+      }
+   }   
+#----Si_Substrate--------------------------------------------------------------
+
+   # "Si" substrate
+   region{
+      cuboid{
+         x = [-($X_OFFSET_LEFT + $GATE_SPAN), ($X_OFFSET_RIGHT + $GATE_SPAN)]           
+         y = [-($Y_OFFSET_LEFT + $GATE_WIDTH_Y/2), ($Y_OFFSET_RIGHT + $GATE_WIDTH_Y/2)]
+         z = [-$Si_SUBS_THICKNESS, 0] 
+      }
+      contact { name = "Si" }
+      binary{ name = "Si" }
+   }
+}<>
+
+#impurities{
+#   donor{    name = "P"   energy = 0.045  degeneracy = 2 }
+#   acceptor{ name = "B"   energy = 0.045  degeneracy = 4 }
+#}<>
+
+contacts{
+
+#----Center_Gate-----------------------------------------------------------------
+
+   #if $SEMICONDUCTORGATE  fermi{
+   #if $SEMICONDUCTORGATE     name = V3
+   #if $SEMICONDUCTORGATE     bias = $V3
+   #if $SEMICONDUCTORGATE     #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet)
+   #if $SEMICONDUCTORGATE     #steps = 24 
+   #if $SEMICONDUCTORGATE  }
+
+   #if $METALLICGATE       schottky{
+   #if $METALLICGATE          name = V3
+   #if $METALLICGATE          bias = $V3
+   #if $METALLICGATE          #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet
+   #if $METALLICGATE          #steps = 24
+   #if $METALLICGATE          barrier = $BARRIER
+   #if $METALLICGATE       }
+
+#----Left_Gate1-----------------------------------------------------------------
+
+   #if $SEMICONDUCTORGATE  fermi{
+   #if $SEMICONDUCTORGATE     name = V2
+   #if $SEMICONDUCTORGATE     bias = $V2
+   #if $SEMICONDUCTORGATE     #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet)
+   #if $SEMICONDUCTORGATE     #steps = 24 
+   #if $SEMICONDUCTORGATE  }
+
+   #if $METALLICGATE       schottky{
+   #if $METALLICGATE          name = V2
+   #if $METALLICGATE          bias = $V2
+   #if $METALLICGATE          #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet
+   #if $METALLICGATE          #steps = 24
+   #if $METALLICGATE          barrier = $BARRIER
+   #if $METALLICGATE       }
+
+#----Right_Gate1-----------------------------------------------------------------
+
+   #if $SEMICONDUCTORGATE  fermi{
+   #if $SEMICONDUCTORGATE     name = V4
+   #if $SEMICONDUCTORGATE     bias = $V4
+   #if $SEMICONDUCTORGATE     #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet)
+   #if $SEMICONDUCTORGATE     #steps = 24 
+   #if $SEMICONDUCTORGATE  }
+
+   #if $METALLICGATE       schottky{
+   #if $METALLICGATE          name = V4
+   #if $METALLICGATE          bias = $V4
+   #if $METALLICGATE          #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet
+   #if $METALLICGATE          #steps = 24
+   #if $METALLICGATE          barrier = $BARRIER
+   #if $METALLICGATE       }
+
+#----Left_Gate2-----------------------------------------------------------------
+
+   #if $SEMICONDUCTORGATE  fermi{
+   #if $SEMICONDUCTORGATE     name = V5
+   #if $SEMICONDUCTORGATE     bias = $V1
+   #if $SEMICONDUCTORGATE     #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet)
+   #if $SEMICONDUCTORGATE     #steps = 24 
+   #if $SEMICONDUCTORGATE  }
+
+   #if $METALLICGATE       schottky{
+   #if $METALLICGATE          name = V5
+   #if $METALLICGATE          bias = $V1
+   #if $METALLICGATE          #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet
+   #if $METALLICGATE          #steps = 24
+   #if $METALLICGATE          barrier = $BARRIER
+   #if $METALLICGATE       }
+
+#----Right_Gate2-----------------------------------------------------------------
+
+   #if $SEMICONDUCTORGATE  fermi{
+   #if $SEMICONDUCTORGATE     name = V1
+   #if $SEMICONDUCTORGATE     bias = $V5
+   #if $SEMICONDUCTORGATE     #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet)
+   #if $SEMICONDUCTORGATE     #steps = 24 
+   #if $SEMICONDUCTORGATE  }
+
+   #if $METALLICGATE       schottky{
+   #if $METALLICGATE          name = V1
+   #if $METALLICGATE          bias = $V5
+   #if $METALLICGATE          #bias = [-3.0e0, 3.0e0] # apply stepping voltage to poisson-cluster (required for Dirichlet
+   #if $METALLICGATE          #steps = 24
+   #if $METALLICGATE          barrier = $BARRIER
+   #if $METALLICGATE       }
+
+#----Si_Substrate--------------------------------------------------------------
+
+   fermi{ 
+      name = "Si"
+      bias = 0.0e0 # apply voltage to poisson-cluster (required for Dirichlet)
+   }
+
+   #ohmic{
+   #   name = "backgate"
+   #   bias = 0.0e0
+   #}
+}<>
+
+classical{
+   Gamma{}
+   X{}
+   #Delta{}
+   HH{}
+   LH{}
+   SO{}
+
+   output_bandedges{}
+   #output_carrier_densities{}
+   #output_ionized_dopant_densities{}
+   #output_intrinsic_density{}
+}<>
+
+
+poisson{
+   output_potential{}
+   #output_electric_field{}
+
+   newton_solver{                      # parameters for solver of nonlinear poisson equation
+      iterations   = 150               # number of iterations for Newton solver (default is: 30)
+      search_steps = 50                # number of line search steps in Newton solver (default is: 20)
+      #residual     = 1e-4              # residual for Newton solver (default is: 1e3/cm2 (1D), 1e1/cm (2D), 1e-4 (3D))
+                                       # residual occupation changes
+   }
+}<>
+
+
+#currents{
+   #mobility_model = minimos
+
+   #recombination_model{
+   #   SRH = no
+   #   Auger = no
+   #}
+
+   #minimum_density = 1e10  # effects minimal current and convergence speed
+   #linear_solver{
+   #   abs_accuracy = 1e-12 # should be at least one order of magnitude smaller than residual in solve_current_poisson{} (default: 1e-6)
+   #}
+
+   #output_fermi_levels{}
+   #output_currents{}
+   #output_mobilities{}
+   #output_recombination{}
+#}<>
+
+quantum {
+   region{
+      name = "quantum_region"       # [Richter]    wavefunction does not penetrate  into SiO2 barrier (infinite barrier)
+      x = [-($X_OFFSET_LEFT + $GATE_SPAN), ($X_OFFSET_RIGHT + $GATE_SPAN)]           
+      y = [-($Y_OFFSET_LEFT + $GATE_WIDTH_Y/2), ($Y_OFFSET_RIGHT + $GATE_WIDTH_Y/2)]
+      z = [-$DOT_DEPTH_EST, 0] 
+
+      boundary{
+         x = dirichlet
+         y = dirichlet
+         z = dirichlet
+      }
+      
+      Gamma{
+         num_ev = 40
+      }
+      X{
+         num_ev = 40
+      }
+      #Delta{
+      #   num_ev = 40
+      #}     
+      #HH{
+      #   num_ev = 40
+      #}
+      #LH{
+      #   num_ev = 40
+      #}
+      #SO{
+      #   num_ev = 40
+      #}
+      
+      #output_wavefunctions{
+      #   max_num = 9999
+      #   all_k_points = yes
+      #   amplitudes = no
+      #   probabilities = yes
+      #}
+   }
+}<>
+
+output{
+   
+   format3D = AvsAscii
+   }<>
+
+run{
+   #solve_current_poisson{
+   #   residual = 1e-11     # small value for very precise current calculation (default: 1e-5)
+   #   iterations = 1000    # precise current calculation possibly requires many iterations (default: 30)
+   #   alpha_fermi = $ALPHA
+   #}
+
+   solve_poisson{}
+   #if $QM solve_quantum{}
+   #if $QM outer_iteration{} # (solve Schroedinger, Poisson (and current) self-consistently)
+
+}<>
