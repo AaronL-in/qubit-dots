@@ -11,7 +11,9 @@ def ctrl_data_input_path():
     # Check that any data from path is imported
     # input = (os.path.join(sys.path[0],'QuDiPy tutorial data','Nextnano simulations','1_dot_P_0p5_0p7'))
     # input = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Nextnano simulations'))
-    input = (os.path.join(sys.path[0],'tutorials','QuDiPy tutorial data','Nextnano simulations'))
+    input = (os.path.join(sys.path[0],'tutorials','QuDiPy tutorial data','Nextnano simulations','5_QDs_Sweep1'))
+
+    print(input)
 
     return input
 
@@ -21,12 +23,14 @@ def ctrl_data_output_path():
     # output = (os.path.join(os.path.dirname(sys.path[0]),'tutorials','QuDiPy tutorial data','Pre-processed_data'))
     output = (os.path.join(sys.path[0],'tutorials','QuDiPy tutorial data','Pre-processed_data'))
         
+    print(output)
+    
     return output
 
 @pytest.fixture(scope="module")
 def ctrl_data(ctrl_data_input_path):
     # Check that any data from path is imported
     # input_nextnano = (os.path.join(sys.path[0],'QuDiPy tutorial data','Nextnano simulations'))
-    data = pot.process_nextnano.import_folder(ctrl_data_input_path, file_import_display=True)
+    data = pot.process_nextnano.import_dir(ctrl_data_input_path, show_files=True)
 
     return data
