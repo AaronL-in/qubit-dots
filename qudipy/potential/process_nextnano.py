@@ -13,7 +13,62 @@ import numpy as np
 import pandas as pd
 from scipy import constants
 
+def index_containing_substring(list_of_strings, substring):
+
+    '''
+    This function finds the index for the first string in a list of strings
+    which contains the substring.
+    
+    Parameters
+    ----------
+    list_of_strings : list
+        list of strings
+
+    Returns
+    -------
+    Index position of string containing substring, otherwise, -1
+    '''
+
+    # Check that the data type for list_of_strings is list
+    if type(list_of_strings) != list:
+        ValueError(f'Entry in substring postion is not of type list, but {type(list_of_strings)}')
+
+    for idx, string in enumerate(list_of_strings):
+
+        # Check that the data types are are strings
+        if type(string) != str:
+            ValueError(f'Index entry {idx} in list is not of type str, but {type(string)}')
+        if type(substring) != str:
+            ValueError(f'Entry in substring postion is not of type str, but {type(substring)}')
+
+        # Retrun index of first string containing substring
+        if substring in string:
+            return idx
+
+    # Return fail code -1 if no substring is found in any of the strings        
+    return -1
+
+
 def get_files(dir, file_type):
+
+    '''
+    This function collects the sub-directory names for the main input nextnano
+    data directory and appends the file type of interest to the name for 
+    later use finding the simulation log file containing meta data about the 
+    simulation run.
+    
+    Parameters
+    ----------
+    dir : string
+        Full path name to directory containing sub-directories of simulation run
+        data
+    file_type: string
+        File type extension to append to sub-directory names i.e. '.log'
+
+    Returns
+    -------
+    A list of file names base on the sub-directory names
+    '''
 
     # Collect the names of every subdirectory in the dir path
     list_subfolders_with_paths = [f.name for f in os.scandir(dir) if f.is_dir()]
@@ -190,8 +245,7 @@ def import_dir(dir, show_files=False):
     '''
 
     # Collect simulation meta data files
-    list_of_files = get_files(dir, '.log') + get_files(dir, '.txt')
-    # list_of_files = get_files(dir, '.txt')
+    list_of_files = get_files(dir, '.log')
 
     # Dictionary which holds all of the simulation run data grouped by run
     data = {}
@@ -213,8 +267,99 @@ def import_dir(dir, show_files=False):
                                     }
                         }
 
+        test1 = sub_dir
+        test2 = base_dir
+        test3 = files
+        combined = '\t'.join(base_dir)
+
+        test4 = 'bias_' in combined
+
+        # Check if /output directory exist
+        condional_flag = False
+
+        output_idx = index_containing_substring(base_dir,'output')
+
+        if  output_idx != -1 and base_dir[output_idx] == ['output']:
+            output_flag = True
+        else:
+            output_flag = False
+
         # First move into a subdirectory
-        if sub_dir != dir and base_dir == ['output']:
+        if  sub_dir != dir and 'bias_' in combined:
+
+            # Check if files one level down in the subdirectory exists
+            if not files:
+                print(f'WARNING: no individual files in directory {sub_dir}')
+
+            # Search for simulation run meta data file
+            for file in files:
+                # If the file name is the same as one of the directories then get
+                # the ctrl_item information
+                if file in list_of_files:
+
+                    # Generate absolute path to file that is names the same as the
+                    # directory
+                    filename = os.path.join(sub_dir, file)
+
+                    # Get voltages
+                    voltages = get_ctrl(filename, ctrl_type='value')
+
+
+            #TODO: handle when above loop can't find any files matching any file in list_of_files
+            # Check if control data in the subdirectory exists
+            if not voltages:
+                print(f'WARNING: no simulation run file with control data found in directory {sub_dir}')
+
+            # Assign control values for the given simulation run
+            data_per_run['ctrl_names'] = voltages
+
+            # Find the index for the /bias_000_000 string in the list of sub-directories
+            data_dir_idx = index_containing_substring(base_dir,'_000')
+
+            # Loop through the all files under the /bias_000_000 directory
+            for data_sub, _, data_files in os.walk(os.path.join(sub_dir,base_dir[data_dir_idx])):
+
+                test6 = data_sub[-4:] 
+
+                # if data_sub[:5] == '_000':
+
+                # Assign potential and coordinate data
+                for file in data_files:
+
+                    # Generate absolute path to file
+                    filename = os.path.join(data_sub, file)
+                    
+                    # if file == 'potential.dat':
+                    if filename[-13:] == 'potential.dat':
+
+                        # Elect to display the files being imported from nextnano
+                        if show_files == True:
+                            print('Importing .coord data files from {}:'.format(
+                                sub_dir.replace(str(dir),'')))
+
+                        data_per_run['ctrl_values'] = load_file(filename)
+
+                    # if file == 'potential.coord':
+                    if filename[-15:] == 'potential.coord':
+
+                        # Elect to display the files being imported from nextnano
+                        if show_files == True:
+                            print('Importing .dat data files from {}:'.format(
+                                sub_dir.replace(str(dir),'')))
+
+                        coord = load_file(filename)
+                        data_per_run['coord']['x'] = coord[0]
+                        data_per_run['coord']['y'] = coord[1]
+                        data_per_run['coord']['z'] = coord[2]
+
+            # Assign every data set per simulation run to a single list of
+            # dictionaries
+            data[count] = data_per_run
+            count += 1
+
+        # In case the user using nextnano created output data per simulation run
+        # which is encapsulated within the /output directory 
+        elif sub_dir != dir and output_flag == True:
 
             # Check if files one level down in the subdirectory exists
             if not files:
@@ -243,7 +388,7 @@ def import_dir(dir, show_files=False):
             data_per_run['ctrl_names'] = voltages
 
             # Loop through the all files under the /output directory
-            for data_sub, _, data_files in os.walk(os.path.join(sub_dir,base_dir[0])):
+            for data_sub, _, data_files in os.walk(os.path.join(sub_dir,base_dir[output_idx])):
 
                 # Assign potential and coordinate data
                 for file in data_files:
@@ -545,9 +690,7 @@ def write_data(input_dir_path, output_dir_path, slice, f_type):
     potential = import_dir(input_dir_path)
 
     # Collect simulation meta data files
-    list_of_files = get_files(input_dir_path, '.log') + \
-                             get_files(input_dir_path, '.txt') 
-    # list_of_files = get_files(input_dir_path, '.txt')
+    list_of_files = get_files(input_dir_path, '.log')
 
     # Find nearest slice from user specified slice
     _, nearest_slice = hp.find_nearest(potential[0]['coord']['z'], slice)
